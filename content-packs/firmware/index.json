@@ -562,6 +562,76 @@
   {
     "id": "cads-zero-docs-0",
     "sourceId": "cads-zero-docs",
+    "section": "Send your first UDP packet",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#send-your-first-udp-packet",
+    "text": "From a stock build to one real UDP datagram, sent by the board's own lwIP\nstack and landing in a terminal on your laptop. Twenty minutes.\n\n**Prerequisites:** an ITSboard already built and flashed (see [Build and\nflash your first image](first-build.md)), an Ethernet cable from the\nboard's jack straight to your laptop (or through a switch — no DHCP server\nneeded either way), and `nc` (netcat) — installed by default on macOS and\nmost Linux distributions."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "1. Give your laptop an address on the board's subnet",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#1-give-your-laptop-an-address-on-the-boards-subnet",
+    "text": "Out of the box the board's addressing is **static**, not DHCP —\n`cads_net_board.c`'s built-in default is `192.168.33.99/24`, gateway\n`192.168.33.1` (see the [config reference](../reference/config-file.md)).\nZero config changes needed. Your laptop just needs an address in the same\n`/24` on whichever interface is wired to the board.\n\nOn macOS, a temporary alias on top of whatever `en0` already has:\n\n```bash\nsudo ifconfig en0 alias 192.168.33.10 255.255.255.0\n```\n\nAny free address in `192.168.33.0/24` works — this tutorial uses `.10`\nthroughout. Exact steps differ on Windows/Linux; the requirement is the\nsame one address, reachable from your NIC."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "2. Start listening",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#2-start-listening",
+    "text": "```bash\nnc -ul 41234\n```\n\nIt prints nothing and blocks — that's correct, it's waiting. `41234` is an\narbitrary high port; picked to stay clear of `37008`, which\n[the Marauder PCAP relay](wifi-wireshark.md) already uses for something\nelse in this codebase.\n\nLeave this running. Everything from here happens in a second terminal."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "3. Add one call to a real demo",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#3-add-one-call-to-a-real-demo",
+    "text": "There's no built-in \"send one packet\" command, but\n`apps/bringup/explorer_ping_demo.c` already does everything except the\nsend: `cads_net_init()`, then the link-wait loop every real caller in this\ncodebase uses (`cads_net_status()` only reports the last poll's cached\nresult — nothing detects link-up on its own, you have to poll for it).\n\nOpen the file. Right after the link-wait loop, before `char\ntarget_text[16];`, add:\n\n```c\n    /* lwip-udp-hello: one UDP datagram to the laptop from step 1 */\n    uint32_t laptop_ip = (192u << 24) | (168u << 16) | (33u << 8) | 10u; /* 192.168.33.10 */\n    static const uint8_t hello_payload[] = \"hello from cads-zero\\n\";\n    cads_net_udp_send(laptop_ip, 41234u, hello_payload, sizeof(hello_payload) - 1u);\n```\n\nThat's the entire lesson: `dst_ip`/`dst_port` in host byte order, no\nsocket object, no return value to check. Per\n`modules/net/include/cads/net/net.h`'s own doc comment on\n`cads_net_udp_send()`, it silently no-ops if the link isn't up or\n`dst_ip` is 0 — the same fire-and-forget shape `apps/marauder`'s PCAP\nrelay already relies on for its one real call site. If your laptop isn't\n`.10`, change the last octet to match step 1."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Build for both targets",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#4-build-for-both-targets",
+    "text": "Everything above the HAL has to build for the board and the simulator —\n`cads_net_udp_send()` has a host stub (`cads_net_sim.c`) that compiles and\nlinks but never actually sends, since the simulator has no link to send\nover.\n\n```bash\ncmake --build build/itsboard\ncmake --build build/host\n```\n\nBoth should finish clean. The host build won't send anything when run —\nthat's expected, not a bug to chase."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Flash",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#5-flash",
+    "text": "```bash\nscripts/flash.sh\n```\n\n```\nFlashing build/itsboard/cads-zero.bin (... bytes) to 0x08000000\nEraseFlash - Sector:0x0 Size:0x4000 -> Flash page at 0x8000000 erased\n...\nDone.\n```"
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "6. Fire it",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#6-fire-it",
+    "text": "If this is a fresh flash, the board booted straight into the touchscreen\napp-tree menu (`boot.autostart=1`) — and that session ignores plain typed\nbytes entirely, on purpose (see `scripts/board_key.py --help`), so a\nconsole command sent into it does nothing and prints nothing, not even an\nerror. One-time fix, only needed if you haven't already left that screen:\n\n```bash\nscripts/board_key.py quit\n```\n\nNow the real command — note the ping target and count are one quoted\nargument, not two (the board itself parses `\"<hex-ip> <count>\"` out of a\nsingle string):\n\n```bash\nscripts/board_cmd.py P \"c0a8210a 1\" --timeout 5\n```\n\n`P` is the existing ping command; `c0a8210a` is `192.168.33.10` in hex,\n`1` is the ping count. The UDP hello fires once the link-wait loop breaks —\nbefore the ping loop even starts — so it goes out regardless of whether\nyour OS answers the ping that follows it.\n\nCheck the `nc` terminal from step 2:\n\n```\nhello from cads-zero\n```\n\nThat line arriving is the whole exercise: a real datagram, built by lwIP\non the board, crossed the wire, and a plain socket on your machine read\nit with no decoding step in between."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "6. Fire it",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#6-fire-it",
+    "text": "**If the ping itself reads `request timed out`**, that's fine — most\nconsumer firewalls or a laptop that just doesn't answer ICMP will do that.\nIt says nothing about the UDP hello, which already left before that loop\nran."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "If nothing arrives",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#if-nothing-arrives",
+    "text": "| Symptom | Likely cause |\n|---|---|\n| `nc` prints nothing at all | Laptop's alias isn't actually on the wire the board is plugged into, or is on the wrong subnet — recheck step 1 |\n| Console shows the demo ran, still nothing in `nc` | `laptop_ip`'s last octet doesn't match the alias you set |\n| Console never gets past the link-wait (3 s, no output at all) | Cable, or the board came up with `net.dhcp = 1` from a prior session — [check `/config.txt`](../how-to/configure.md) |\n| `nc: Address already in use` | Something else already owns port 41234 — pick a different one in both places |\n| `board_cmd.py` prints absolutely nothing, not even an error | The board is still sitting in the app-tree menu — run `scripts/board_key.py quit` first, then retry the `P` command (step 6) |\n\nNone of these are board-side bugs to debug over SWD — every one is either\na laptop-networking mismatch or a typo in step 3.\n[Debug with GDB](../how-to/debug.md) is the next step only if the board\nitself looks wrong (crashes, resets, no console at all)."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "Next",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/lwip-udp-hello/#next",
+    "text": "**[WiFi recon and live capture in Wireshark](wifi-wireshark.md)** — the\nsame netif, but relaying a real capture stream instead of one hand-written\ndatagram."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
     "section": "HAL interface",
     "url": "https://scimbe.github.io/cads-zero/reference/hal/#hal-interface",
     "text": "The boundary between portable code and hardware. Header: `core/cads_hal.h`.\n\nEverything above this line compiles unchanged for the board and for the host\nsimulator. Two implementations exist: `targets/itsboard/` against STM32F429\nregisters, and `targets/sim/` against SDL2.\n\nTo bring up different hardware, see\n[Port to different hardware](../how-to/port-to-new-board.md)."

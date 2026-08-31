@@ -13,6 +13,7 @@
     { "file": "how-to/board-test.md", "docPath": "how-to/board-test/" },
     { "file": "tutorials/first-build.md", "docPath": "tutorials/first-build/" },
     { "file": "tutorials/first-gate.md", "docPath": "tutorials/first-gate/" },
+    { "file": "tutorials/lwip-udp-hello.md", "docPath": "tutorials/lwip-udp-hello/" },
     { "file": "reference/hal.md", "docPath": "reference/hal/" },
     { "file": "reference/memory-map.md", "docPath": "reference/memory-map/" },
     { "file": "reference/module-layout.md", "docPath": "reference/module-layout/" },

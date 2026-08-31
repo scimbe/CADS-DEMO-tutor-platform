@@ -1,0 +1,1017 @@
+[
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Set up VS Code",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#set-up-vs-code",
+    "text": "Everything in this page is free — no paid extension, no account, no trial.\nThe repo ships working `.vscode/` config (`extensions.json`, `settings.json`,\n`tasks.json`, `launch.json`) and a `CMakePresets.json` at the root, so most\nof this is \"open the folder and say yes\" rather than manual setup. The\nwhole flow below — open, build, flash, debug, inspect real peripheral\nregisters — is driven through VS Code's own native UI (status bar, the\nActivity Bar's Run and Debug panel, CMake Tools' target picker), not\nCommand Palette gymnastics or a custom task menu you have to remember."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "1. Get a toolchain on `PATH`",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#1-get-a-toolchain-on-path",
+    "text": "`scripts/build.sh` (and the CMake presets below) look for `arm-none-eabi-gcc`\nvia `CADS_ARM_TOOLCHAIN_BIN`, then fall back to plain `PATH` — see\n[Build the firmware](build.md#toolchain). For VS Code specifically, `PATH` is\nthe simpler option: the debugger extension resolves `arm-none-eabi-gdb` the\nsame way, with no environment variable to keep in sync between your shell and\nhowever VS Code itself gets launched.\n\n```bash"
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "macOS",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#macos",
+    "text": "brew install --cask gcc-arm-embedded"
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Debian/Ubuntu",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#debianubuntu",
+    "text": "sudo apt install gcc-arm-none-eabi"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "then, either shell:",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#then-either-shell",
+    "text": "arm-none-eabi-gcc --version   # confirm it's on PATH\n```\n\nYou'll also want `cmake` (≥ 3.21 for the presets file, though the project's\nown floor is 3.20), `ninja`, and `st-link` (for `st-flash`/`st-util`) —\n`brew install cmake ninja stlink` / `apt install cmake ninja-build stlink-tools`."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "Windows",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#windows",
+    "text": "Be aware going in: several pieces of this project's tooling are bash\nscripts or use the POSIX-only `termios` module, so \"Windows\" really means\nchoosing between two genuinely different levels of support — this isn't\nguesswork, it's what's actually in the scripts:\n\n- **`scripts/build.sh` / `scripts/flash.sh`** (and so the \"Build: ITSboard\n  firmware\" and \"Flash: ITSboard over ST-Link\" tasks in `tasks.json`, and\n  the `flash` CMake target in §4) are `#!/usr/bin/env bash` scripts —\n  PowerShell/cmd can't run them directly.\n- **`scripts/cads_serial.py`** (so `scripts/board_cmd.py` and anything else\n  that opens the console) imports Python's `termios` module directly, which\n  **does not exist on native Windows Python at all** — not a missing\n  package, an immediate `ImportError`. There is no workaround short of a\n  Windows-specific rewrite this project doesn't have."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "Windows",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#windows",
+    "text": "**WSL2 — the path that actually gets you everything.** Install a WSL2\nDebian/Ubuntu distro, then follow the Debian/Ubuntu instructions above\n*inside* WSL — every script in this repo, including the console tooling,\nruns unmodified there. The one extra step: WSL2 doesn't see USB devices by\ndefault, so the ST-Link needs passing through from Windows with\n[usbipd-win](https://github.com/dorodnic/usbipd-win) (`usbipd bind`/`usbipd\nattach --wsl`, run from an elevated Windows prompt each time you replug).\nOnce attached, it enumerates as `/dev/ttyACM0` (or similar), not\n`/dev/cu.usbmodem*` — pass `--port /dev/ttyACM0` to `board_cmd.py`, or\nexport `CADS_CONSOLE_PORT=/dev/ttyACM0`, since the port auto-detect in\n`cads_serial.py` only looks for macOS device names. Open the *WSL* copy of\nthe repo in VS Code with the [WSL\nextension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl)\n(`code .` from the WSL shell) so CMake Tools, cpptools, and cortex-debug all\nrun against the Linux toolchain and the Linux `st-util`/`st-flash` — mixing\na Windows-side VS Code with a WSL-side toolchain is where this stops working."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "Windows",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#windows",
+    "text": "**Native Windows — build and debug only, not flash or console.** If you'd\nrather not use WSL: install the [Arm GNU\nToolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)\nWindows installer (adds `arm-none-eabi-gcc` to `PATH` for you), `cmake` and\n`ninja` (via their own installers, `winget`, or `choco`), and the [ST-Link\nWindows tools](https://www.st.com/en/development-tools/stsw-link009.html).\nCMake Tools' `itsboard`/`host` presets, cpptools, and cortex-debug (§5) all\nwork natively this way — none of them shell out to a `.sh` script. What\ndoesn't: the two `tasks.json` entries that do (build via\n`cmake --preset itsboard && cmake --build --preset itsboard` directly\ninstead, which is exactly what `build.sh` itself wraps), the `flash` CMake\ntarget (use `st-flash --serial <id> --reset write build\\itsboard\\cads-\nzero.bin 0x08000000` by hand instead, or install Git for Windows and point\nVS Code's default shell at its bundled `bash.exe` so the scripts resolve),\nand anything under `scripts/*.py` that touches the serial console."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "Windows",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#windows",
+    "text": "If you'd rather use the exact toolchain version this project's own reference\nmachine has (installed via the vcpkg-artifacts mechanism the Arm Keil Studio\nPack extension manages), that still works — set `CADS_ARM_TOOLCHAIN_BIN` to\nits `bin` directory, in your shell's rc file (`~/.zshrc` / `~/.bashrc`), not\njust for one terminal session.\n\n**Whichever route you take, make it durable, not just \"works in this one\nterminal.\"** VS Code, once started, does not notice a `PATH` change in some\n*other* terminal you opened afterward — and if VS Code is already running\nwhen you open a new terminal window and type `code .`, that just opens a new\nwindow in the *same, already-running* process with whatever environment it\nstarted with. If `cortex-debug` ever reports `GDB executable\n\"arm-none-eabi-gdb\" was not found`, the fix is: put the toolchain on `PATH`\nin your shell's rc file (so every *new* terminal has it, not just the one\nwhere you happened to run an export), then **fully quit VS Code** (not just\nclose the window — `Cmd+Q` / quit from the Dock, or the toolchain fix still\nwon't reach it) and reopen it from a fresh terminal."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "2. Install the extensions",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#2-install-the-extensions",
+    "text": "Open the folder in VS Code. It will offer to install the four recommended\nextensions from `.vscode/extensions.json` — accept, or install by hand:\n\n| Extension | ID | What it's for |\n|---|---|---|\n| CMake Tools | `ms-vscode.cmake-tools` | Reads `CMakePresets.json`, gives you a status-bar picker for the `itsboard`/`host` presets, drives configure/build/test without typing CLI commands. |\n| C/C++ | `ms-vscode.cpptools` | IntelliSense, go-to-definition, and inline diagnostics — fed the *real* compiler flags from whichever preset is active via `compile_commands.json` (already enabled project-wide, `CMAKE_EXPORT_COMPILE_COMMANDS=ON`), not a guess at your setup. Also where formatting and linting live — see §6. |\n| Cortex-Debug | `marus25.cortex-debug` | Breakpoints, variable inspection, and a real peripheral-register tree on the real board, driving `st-util` for you instead of typing the raw GDB session from [Debug with GDB](debug.md) by hand every time. |\n| Python | `ms-python.python` | Editing/running `scripts/*.py` (`board_cmd.py`, `cads_config.py`, `board_test.py`, ...) — all dependency-free stdlib Python, so this is the only Python tooling you need. |"
+  },
+  {
+    "id": "cads-zero-docs-10",
+    "sourceId": "cads-zero-docs",
+    "section": "2. Install the extensions",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#2-install-the-extensions",
+    "text": "Nothing ESP32/Arduino-specific is on this list on purpose — see §5. If you\nalso have **Arm Keil Studio Pack** installed (for a different project, say)\nit can coexist in the same VS Code install without conflict — its own status\nbar items (an Arm Tools/Keil MDK indicator) will just show up alongside\nthese; nothing here depends on it being absent, and nothing here touches its\nconfiguration.\n\n![VS Code with the cads-zero folder open: file explorer showing the real project tree (apps, core, gui, modules, targets, tools, ...), main.c open in the editor](images/vscode-01-open.png)"
+  },
+  {
+    "id": "cads-zero-docs-11",
+    "sourceId": "cads-zero-docs",
+    "section": "3. Build both targets",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#3-build-both-targets",
+    "text": "The status bar (bottom of the window, once CMake Tools is active) shows the\ncurrent preset. Pick **itsboard** or **host**, then either use CMake Tools'\nown status-bar build button or **Terminal → Run Task**:\n\n- **Build: ITSboard firmware** — the real board image, via `scripts/build.sh`.\n- **Build: Host (sim + unit tests)** — the SDL2 simulator and the full test\n  suite, native compiler, no ARM toolchain needed for this one.\n- **Test: Host unit tests** — `ctest --preset host`, all 30+ unit and\n  golden-image tests.\n\nThese call the exact same scripts and CMake presets the command line uses\n(`scripts/build.sh`, `cmake --preset host`) — nothing VS-Code-specific about\nwhat actually runs, only how you trigger it.\n\n![The integrated terminal showing a real build task complete: CaDS Zero target itsboard, ninja build, and the produced cads-zero.bin/.elf/.hex artifacts listed](images/vscode-02-build.png)"
+  },
+  {
+    "id": "cads-zero-docs-12",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Flash on real hardware",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#4-flash-on-real-hardware",
+    "text": "`scripts/flash.sh` is also reachable as a genuine **CMake target** called\n`flash`, not only through the task menu — CMake Tools' own target picker\n(the CMake icon in the Activity Bar → Project Outline, or the target name in\nthe status bar) lists it alongside `cads-zero.elf`, so building it is the\nsame one click as building anything else. It depends on `cads-zero.elf`, so\nit always flashes the freshest build. From a terminal (including VS Code's\nown integrated one) it's:\n\n```bash\ncmake --build build/itsboard --target flash\n```\n\nwhich delegates to `scripts/flash.sh` itself — see\n[Flash the board](flash.md) for what that script does and the safety\nconstraints (`docs/SAFETY.md`) it respects; this target doesn't reimplement\nany of that, just calls the one script that already gets it right."
+  },
+  {
+    "id": "cads-zero-docs-13",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Debug and inspect real registers",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#5-debug-and-inspect-real-registers",
+    "text": "Open the **Run and Debug** panel (the Activity Bar icon that looks like a\nplay button with a bug, a few icons below Search — or `Cmd/Ctrl+Shift+D`).\nThe dropdown at the top already lists both configs from `.vscode/launch.json`:\n\n![The Run and Debug configuration dropdown, showing \"Debug on ITSboard (st-util)\" (checked/selected) and \"Attach to ITSboard (already running)\"](images/vscode-03-debug-config.png)\n\n- **Debug on ITSboard (st-util)** — builds, flashes, and stops at `main()`\n  with breakpoints available. This is [Debug with GDB](debug.md)'s\n  `st-util` + `arm-none-eabi-gdb` session, wired into VS Code's UI instead of\n  two terminal windows.\n- **Attach to ITSboard (already running)** — no reset, no reflash: attaches\n  to the board exactly as it is. This is the technique\n  [Debug with GDB](debug.md#when-the-firmware-faults-read-the-console-first)\n  describes for reading a halted fault handler's evidence — resetting first\n  would destroy exactly what you're trying to inspect."
+  },
+  {
+    "id": "cads-zero-docs-14",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Debug and inspect real registers",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#5-debug-and-inspect-real-registers",
+    "text": "With a config selected, hit the green play button (or `F5`). On real\nhardware this stops exactly where `runToEntryPoint` says (`main()`), with a\nlive call stack, variables, and full breakpoint/step controls — the Debug\nConsole shows the real launch sequence (`arm-none-eabi-gdb` from the\nresolved toolchain, `st-util` as the GDB server, \"Temporary breakpoint 1,\nmain ()\"), not a simulated one:\n\n![VS Code stopped at a real breakpoint in main() on the real board: editor showing the highlighted current line, Debug Console with the full successful launch log, Call Stack panel showing \"Paused on breakpoint\"](images/vscode-04-debug.png)\n\n**Registers.** The Variables panel's own **Registers** section gives the\ncore registers (`r0`-`r15`, `xPSR`, ...) with nothing extra to configure:\n\n![The Registers section under Variables, expanded, showing real core register values (r0 through r12 and beyond) read live from the board](images/vscode-05-registers.png)"
+  },
+  {
+    "id": "cads-zero-docs-15",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Debug and inspect real registers",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#5-debug-and-inspect-real-registers",
+    "text": "**Peripheral registers — the part that actually matters for embedded work.**\nRaw core registers rarely answer the question you have (\"is `RCC->CR`\nshowing HSE ready?\", \"what does `GPIOA->ODR` actually hold right now?\"). A\nvendored SVD file (`targets/itsboard/STM32F429.svd`, STMicroelectronics'\nown, Apache-2.0, the same licence as the `cmsis_device_f4` submodule already\nin `lib/`) is wired into both `launch.json` configs via `\"svdFile\"`, which\ngives `cortex-debug` a full named-peripheral tree — a real **XPeripherals**\npanel appears in the Run and Debug sidebar once a session is active:\n\n![The XPeripherals panel listing real STM32F429 peripherals by name and base address - ADC1 at 0x40012000, ADC2 at 0x40012100, CAN1 at 0x40006400, and more](images/vscode-06-peripherals.png)\n\nExpand any one of them for its actual named registers, live:\n\n![ADC1 expanded, showing its real registers by name and offset - SR at 0x0, CR1 at 0x4, CR2 at 0x8, SMPR1 at 0xc - with live values read from the board](images/vscode-07-peripheral-detail.png)"
+  },
+  {
+    "id": "cads-zero-docs-16",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Debug and inspect real registers",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#5-debug-and-inspect-real-registers",
+    "text": "This is the de facto standard way to inspect registers in a VS Code\nembedded workflow — no separate \"Peripheral Inspector\" extension needed,\n`cortex-debug` already does it once a matching SVD file is configured.\n\nBoth debug configs assume one ST-Link attached. With two on the same Mac,\nadd `\"serialNumber\": \"<id>\"` to the relevant config in `.vscode/launch.json`\n(find the id with `st-info --probe`)."
+  },
+  {
+    "id": "cads-zero-docs-17",
+    "sourceId": "cads-zero-docs",
+    "section": "6. Linting and formatting",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#6-linting-and-formatting",
+    "text": "Both are already on by default (`.vscode/settings.json`) and both read\nconfig files checked into the repo root, so there's nothing to configure -\nonly, for linting, one more tool to install.\n\n**Formatting** (`.clang-format`, curated against this codebase's own real\nstyle - 4-space indent, attached braces, indented `case` labels, short\n`if(x) return;` bodies kept on one line) works with nothing extra: `ms-\nvscode.cpptools` ships its own bundled `clang-format`, so **format on\nsave** just works the moment the extension is installed. Format-on-save is\nscoped to C/C++ files only (`\"[c]\"`/`\"[cpp]\"` in settings.json), so it\nnever touches the Python scripts or the vendored submodules under `lib/`.\n\n**Linting** (`.clang-tidy` - `bugprone-*`/`clang-analyzer-*` plus a\nhandful of individually-checked `readability-*`/`performance-*` rules;\ndeliberately *not* the rest of `readability-*` wholesale, which fights\nthis codebase's own conventions on things like literal suffixes and\nsingle-line `if` bodies - see the file's own header comment for the real\nnumbers this was tuned against) needs an actual `clang-tidy` binary,\nwhich `cpptools` does not bundle:\n\n```bash"
+  },
+  {
+    "id": "cads-zero-docs-18",
+    "sourceId": "cads-zero-docs",
+    "section": "macOS",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#macos",
+    "text": "brew install llvm"
+  },
+  {
+    "id": "cads-zero-docs-19",
+    "sourceId": "cads-zero-docs",
+    "section": "then add its (keg-only - not linked onto PATH by default) bin dir:",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#then-add-its-keg-only---not-linked-onto-path-by-default-bin-dir",
+    "text": "echo 'export PATH=\"/opt/homebrew/opt/llvm/bin:$PATH\"' >> ~/.zshrc"
+  },
+  {
+    "id": "cads-zero-docs-20",
+    "sourceId": "cads-zero-docs",
+    "section": "open a new terminal (or `source ~/.zshrc`), then confirm:",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#open-a-new-terminal-or-source-zshrc-then-confirm",
+    "text": "clang-tidy --version"
+  },
+  {
+    "id": "cads-zero-docs-21",
+    "sourceId": "cads-zero-docs",
+    "section": "Debian/Ubuntu",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#debianubuntu",
+    "text": "sudo apt install clang-tidy\n```\n\nOnce `clang-tidy` is on `PATH`, fully quit and reopen VS Code (the same\n\"a running process doesn't notice a later `PATH` change\" caveat from §1\napplies here too) so `cpptools` picks it up. Findings show up as squiggly\nunderlines in the editor and in the **Problems** panel, the same as a\ncompiler warning."
+  },
+  {
+    "id": "cads-zero-docs-22",
+    "sourceId": "cads-zero-docs",
+    "section": "7. The ESP32/Marauder side",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#7-the-esp32marauder-side",
+    "text": "No dedicated Arduino/ESP-IDF extension is on the recommended list — the\nWiFi co-processor's firmware is built entirely by\n`tools/marauder-build/build_and_flash.sh` (wired up as the **Build:\nESP32Marauder co-processor** task), which drives `arduino-cli` directly. See\n[wifi-coprocessor.md](../reference/wifi-coprocessor.md) for the wiring and\n[marauder-coprocessor.md](../reference/marauder-coprocessor.md) for the build\nitself. If you want editor support while reading or patching the vendored\nMarauder C++ source, `ms-vscode.cpptools` (already installed for the STM32\nside) handles plain C++ syntax/navigation fine without a second, heavier\nArduino-specific extension — this codebase's own C/C++ files and Marauder's\nare different languages of the same family, not different tooling."
+  },
+  {
+    "id": "cads-zero-docs-23",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "[Transport-Protocol/ITS-BRD-VSC](https://github.com/Transport-Protocol/ITS-BRD-VSC)\nis HAW Hamburg's other ITSboard example (an lwIP teaching project). It's\nworth naming directly and being blunt about the difference, because it\nisn't a small stylistic choice: ITS-BRD-VSC's whole workflow is built on\ntop of one vendor extension (Arm Keil Studio Pack) and its own project\nformat. CaDS Zero deliberately does the opposite — everything in this page\nis **VS Code's own default tooling plus mainstream, single-purpose\nextensions** (CMake Tools, cpptools, cortex-debug) driving a plain CMake\nproject. Nothing here is CaDS-Zero-specific glue that only works because of\nsome other extension's cache, config format, or project model."
+  },
+  {
+    "id": "cads-zero-docs-24",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "| | ITS-BRD-VSC | CaDS Zero |\n|---|---|---|\n| Project format | CMSIS-Solution (`.cproject.yml`/`.csolution.yml`) — a vendor-defined project model | Plain CMake (`CMakeLists.txt` + `CMakePresets.json`) — the de facto standard for C/C++, understood by every IDE and every CI system |\n| Build UI | Keil Studio Pack's own CMSIS panel | CMake Tools' native status bar/target picker — the same `cmake --preset` a terminal, CLion, or CI would run, with no VS Code involved at all |\n| Toolchain | Arm Keil Studio Pack (MDK 6, Community licence) — tied to that extension | Homebrew/apt `arm-none-eabi-gcc`, or the vcpkg-artifacts mechanism as an alternative — either way, a toolchain you could point *any* build system at |\n| Extensions needed | Keil Studio Pack (bundles ~7 Arm-specific extensions), clangd, Memory/Peripheral Inspector | 4 mainstream, single-purpose extensions — CMake Tools, cpptools, cortex-debug, Python |\n| Peripheral registers | Keil's own Peripheral Inspector view | `cortex-debug`'s native SVD support — a vendored, Apache-2.0 SVD file, same result, no extra extension needed |\n| Build without hardware | Not covered — the project targets the real board only | `build/host`: the full "
+  },
+  {
+    "id": "cads-zero-docs-25",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "GUI runs in an SDL2 window, and the entire unit/golden-image suite runs, with no board attached |\n| Second co-processor toolchain | N/A | ESP32/Arduino side integrated in the same repo (`tools/marauder-build/`) |\n| Linting | clangd's own diagnostics | A curated `.clang-tidy`, tuned against this codebase's real output rather than left at stock defaults |\n| Portability of what you learn | Tied to Keil Studio Pack's own project format and panels | Presets, `compile_commands.json`-driven IntelliSense, and `cortex-debug` + SVD are all plain, transferable VS Code/CMake mechanics |"
+  },
+  {
+    "id": "cads-zero-docs-26",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "**The honest trade-off, not just the CaDS Zero side of it:** Keil Studio\nPack is the vendor-blessed path, and for someone who wants Arm's own\nproject wizards, its Pack management (auto-fetching CMSIS packs by version),\nand its polished Memory/Peripheral Inspector UI out of the box, it's a\ngenuinely good, well-integrated experience — you install one extension and\nmost of the STM32-specific plumbing is done for you. What it costs is\nportability and transparency: your build only really makes sense inside\nthat one extension's project model, and if it ever breaks, you're debugging\nKeil's own tooling, not a build system you already know from elsewhere.\n\n**What CaDS Zero's approach can now definitely do that ITS-BRD-VSC's setup\ndoesn't:**"
+  },
+  {
+    "id": "cads-zero-docs-27",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "- **Build and fully exercise the firmware with zero hardware attached** —\n  `build/host` runs the real GUI in an SDL2 window and the entire unit/\n  golden-image test suite. ITS-BRD-VSC has no equivalent; its workflow\n  assumes a board is on the desk. - **Work identically outside VS Code** — `cmake --preset itsboard && cmake\n  --build build/itsboard` (or `--preset host`) is the *entire* build,\n  runnable from any terminal, any CI runner, or any other IDE that reads\n  CMakePresets.json. Nothing is trapped inside one extension's UI. - **Drive two independent toolchains from one project** — the STM32 side\n  (plain CMake/ARM GCC) and the ESP32/Marauder co-processor side (Arduino\n  CLI, `tools/marauder-build/`) live in the same repo without either one\n  needing the other's extension installed. - **Coexist cleanly with a completely different toolchain in the same VS\n  Code install** — because nothing here depends on Keil Studio Pack being\n  present *or* absent, this setup and ITS-BRD-VSC's can genuinely sit\n  side by side in one VS Code, each on its own project, neither touching\n  the other's configuration (see §2)."
+  },
+  {
+    "id": "cads-zero-docs-28",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "- **Give real peripheral-register inspection without installing anything\n  beyond what's already recommended** — the vendored SVD file (§5) gets\n  cortex-debug's native XPeripherals tree \"for free,\" rather than needing\n  Keil's separate Peripheral Inspector extension."
+  },
+  {
+    "id": "cads-zero-docs-29",
+    "sourceId": "cads-zero-docs",
+    "section": "How this differs from ITS-BRD-VSC",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#how-this-differs-from-its-brd-vsc",
+    "text": "None of that makes CMSIS-Solution the wrong choice for a project that's\ncommitted to the Arm ecosystem end to end — it makes CaDS Zero's choice the\nright one for a project that wants to stay buildable, debuggable, and\nreadable by anyone with a normal CMake+VS Code setup, on a board they may\nnot physically have in front of them yet."
+  },
+  {
+    "id": "cads-zero-docs-30",
+    "sourceId": "cads-zero-docs",
+    "section": "Troubleshooting",
+    "url": "https://scimbe.github.io/cads-zero/how-to/vscode-setup/#troubleshooting",
+    "text": "- **CMake Tools can't find a compiler for the `itsboard` preset**, or\n  **`cortex-debug` reports `GDB executable \"arm-none-eabi-gdb\" was not\n  found`** — the toolchain isn't on the `PATH` the *running* VS Code process\n  actually has. See §1's durability note: fix your shell rc, then fully quit\n  (not just close the window) and reopen VS Code from a fresh terminal.\n- **The `XPeripherals` panel shows \"No active debug session\"** — that's\n  correct and expected outside of an active debug session; it populates\n  once you start one (§5).\n- **Flash/debug fails right after a firmware update to `st-link`, or the\n  probe seems to vanish** — see\n  [Flash the board](flash.md) and [Debug with GDB](debug.md) for the\n  probe-sharing and stale-server pitfalls; both apply the same way whether\n  you're driving `st-flash`/`st-util` from a terminal or through this page's\n  native UI."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Build the firmware",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#build-the-firmware",
+    "text": "```bash\nscripts/build.sh              # Debug, the default\nscripts/build.sh Release\n```\n\nArtifacts land in `build/itsboard/`: `cads-zero.elf`, `.bin`, `.hex`, and\n`cads-zero.map`."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Toolchain",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#toolchain",
+    "text": "The script resolves `arm-none-eabi-gcc` from the vcpkg artifact tree that the\nKeil Studio VS Code extension manages, picking the newest version it finds:\n\n```\n~/.vcpkg/artifacts/*/compilers.arm.arm.none.eabi.gcc/*/bin\n```\n\nOverride with `CADS_ARM_TOOLCHAIN_BIN`, or put a toolchain on `PATH` and the\nCMake toolchain file will fall back to it."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Build options",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#build-options",
+    "text": "```bash"
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "After swapping SB121/SB122 on the Nucleo - see docs/explanation/pa7-conflict.md",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#after-swapping-sb121sb122-on-the-nucleo---see-docsexplanationpa7-conflictmd",
+    "text": "scripts/build.sh Debug -DCADS_SPI_MOSI_ON_PB5=1\n```"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Reading the size report",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#reading-the-size-report",
+    "text": "Every link prints one:\n\n```\nMemory region         Used Size  Region Size  %age Used\n       FLASH_APP:       13412 B         1 MB      1.28%\n        FLASH_FS:           0 B       896 KB      0.00%\n             RAM:      107712 B       192 KB     54.79%\n             CCM:           0 B        64 KB      0.00%\n```\n\n`FLASH_FS` must stay at 0 — anything landing there would collide with the\nlittlefs volume. The linker also asserts that at least 48 KB of heap survives,\nbecause lwIP and the GUI do not fit below that."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "Host build",
+    "url": "https://scimbe.github.io/cads-zero/how-to/build/#host-build",
+    "text": "Without the toolchain file, CMake configures for the host: the simulator and the\nunit tests.\n\n```bash\ncmake -S . -B build/host -G Ninja\ncmake --build build/host\nctest --test-dir build/host\n```"
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Flash the board",
+    "url": "https://scimbe.github.io/cads-zero/how-to/flash/#flash-the-board",
+    "text": "```bash\nscripts/flash.sh                              # build/itsboard/cads-zero.bin\nscripts/flash.sh path/to/other.bin\n```"
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "What it does, and what it refuses to do",
+    "url": "https://scimbe.github.io/cads-zero/how-to/flash/#what-it-does-and-what-it-refuses-to-do",
+    "text": "```\nst-flash --serial <probe> --reset write <bin> 0x08000000\n```\n\n`st-flash write` sector-erases only the range it is writing. A 13 KB image\ntouches sector 0 and nothing else:\n\n```\nEraseFlash - Sector:0x0 Size:0x4000 -> Flash page at 0x8000000 erased\n```\n\nThree guards, in order of how badly you would miss them:\n\n- **No mass erase, ever.** A chip erase would take the littlefs volume in bank 2\n  with it, and on a board configured for it could touch option bytes.\n- **Image size is checked against 1 MB.** A larger image would run past flash\n  bank 1 into the filesystem window at `0x08120000`, so the script refuses\n  rather than corrupting it.\n- **Option bytes are never written.** Setting read protection is either annoying\n  or permanent."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Picking the probe",
+    "url": "https://scimbe.github.io/cads-zero/how-to/flash/#picking-the-probe",
+    "text": "`CADS_STLINK_SERIAL` selects the ST-Link when more than one is attached. The\ndefault is the board this repository is developed against:\n\n```bash\nCADS_STLINK_SERIAL=066FFF565282494867161033 scripts/flash.sh\n```\n\n`st-info --probe` lists what is connected."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "If flashing fails",
+    "url": "https://scimbe.github.io/cads-zero/how-to/flash/#if-flashing-fails",
+    "text": "A stale GDB server holds the probe and produces confusing errors:\n\n```bash\npkill -f st-util\n```"
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Debug on the board",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#debug-on-the-board",
+    "text": "Three tools do the work here, and they hand off to each other:\n\n- **The fault console** — when the firmware faults, it prints a labelled\n  register dump over the serial port and *halts*, keeping the evidence live.\n- **`st-util` + GDB** — attach to that halt (or any running board) and inspect\n  memory, registers, and the clock tree directly.\n- **The bring-up explorer** — a live single-letter command console for asking\n  the board's own subsystems what state they are in, before a fault ever\n  happens. Every command is catalogued in\n  [the explorer console reference](../reference/explorer-console.md); this page\n  is about *which one to reach for when* and how it fits a debugging session.\n\nEverything that touches the probe or the port runs under a timeout, and a stale\nGDB server is the classic way to make the next step fail confusingly — both are\n[rules, not suggestions](../SAFETY.md#7-test-and-debugging-conduct)."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Attach GDB",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#attach-gdb",
+    "text": "```bash\nst-util --serial 066FFF565282494867161033 -p 4242 &\narm-none-eabi-gdb -q build/itsboard/cads-zero.elf \\\n    -ex \"target extended-remote :4242\"\n```\n\nAlways clean up afterwards — a stale server holds the probe and the next\n`flash.sh` fails in a way that looks like a hardware problem:\n\n```bash\npkill -f st-util\n```"
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Where am I?",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#where-am-i",
+    "text": "```\n(gdb) monitor reset halt\n(gdb) break cads_bringup_run\n(gdb) continue\n(gdb) bt\n```\n\nAttaching resets the target, so a backtrace taken immediately after connecting\nshows the board a few milliseconds into boot, not where it was when you decided\nto look. This is easy to misread as a hang."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Time is frozen while halted",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#time-is-frozen-while-halted",
+    "text": "`DWT->CYCCNT` does not advance when the core is halted, so reading it twice from\nGDB always gives the same value. That is not evidence the counter is broken."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "When the firmware faults, read the console first",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#when-the-firmware-faults-read-the-console-first",
+    "text": "Before you attach anything, look at the serial console. A memory, bus, or usage\nfault does not silently reset this firmware — it prints. The four handlers in\n`targets/itsboard/startup/fault_handlers.c` are strong definitions that override\nthe generated vector table's weak `Default_Handler` aliases, and each one dumps\nthe exception-stacked frame and then stops:\n\n```\n*** CaDS FAULT: UsageFault ***\nR0  = 0x........\nR1  = 0x........\nR2  = 0x........\nR3  = 0x........\nR12 = 0x........\nLR  = 0x........\nPC  = 0x........      <- the faulting instruction\nPSR = 0x........\nCFSR = 0x00010000\nHFSR = 0x00000000\n```\n\nThree things about this dump are deliberate and worth knowing before you use it:"
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "When the firmware faults, read the console first",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#when-the-firmware-faults-read-the-console-first",
+    "text": "- **The name is already narrowed for you.** `cads_fault_init()` (called from\n  `hal_init.c`, right after the console comes up) enables the MemManage,\n  BusFault, and UsageFault handlers in `SCB->SHCSR`. Without that step every\n  fault still gets caught, but only as an undifferentiated `HardFault` — the\n  reset default — and you would be decoding `HFSR` by hand to learn what\n  actually happened. With it, the banner names the real fault directly. - **`PC` is the instruction that faulted**, recovered from whichever stack was\n  active — MSP for a fault in an exception or before the scheduler starts, PSP\n  for a fault inside a task. The handler is a `naked` trampoline that reads\n  `EXC_RETURN` out of `LR` to pick the right stack pointer *before* any C\n  prologue can disturb it; that is why the frame is trustworthy rather than the\n  handler's own. The full reasoning is commented at length in the source and is\n  worth reading once. - **It halted; it did not reset.** The dump ends in `bkpt #0` followed by an\n  infinite loop, on the same halt-don't-reset principle as `Default_Handler`: a\n  reset would throw away the only copy of the evidence."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "When the firmware faults, read the console first",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#when-the-firmware-faults-read-the-console-first",
+    "text": "So the board is now\n  sitting halted with the fault still live in memory — which is exactly the\n  state you want GDB to attach to."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "When the firmware faults, read the console first",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#when-the-firmware-faults-read-the-console-first",
+    "text": "With a debugger already attached, the `bkpt` traps to it. On an *untethered*\nboard the `bkpt` escalates to a HardFault, so the same fault presents as a\nlock-up with the red LED lit — the intended, safe failure mode, not a second\nbug."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "Turn the dump into a source location",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#turn-the-dump-into-a-source-location",
+    "text": "The dump gives raw addresses; the ELF turns them back into code. `PC` is the one\nyou almost always want:\n\n```bash\narm-none-eabi-addr2line -e build/itsboard/cads-zero.elf 0x<PC>\n```\n\nor, from inside the GDB session already attached to the halt:\n\n```\n(gdb) info line *0x<PC>\n(gdb) list *0x<PC>\n```\n\n`cads-zero.map` from the same build resolves an address to the section and\nsymbol it landed in, which is how a fault whose `PC` points *inside* a specific\nroutine gets identified — a `.ramfunc` bus fault was tracked down exactly this\nway (see the storage notes in `docs/ROADMAP.md`)."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "Decode `CFSR` by hand",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#decode-cfsr-by-hand",
+    "text": "The dump prints `CFSR` as one 32-bit word because a reader with PM0214 open can\nshift it apart faster than four extra lines of firmware could. It packs three\nsub-registers (PM0214 §4.4.7–4.4.9):\n\n| Bits | Sub-register | Covers |\n|---|---|---|\n| 7:0 | MMFSR | Memory-management faults (MPU, execute-never) |\n| 15:8 | BFSR | Bus faults (bad address, imprecise write) |\n| 31:16 | UFSR | Usage faults (undefined instruction, unaligned, divide-by-zero) |\n\n`MMFAR` and `BFAR` — the faulting *address* for a memory or bus fault — are only\nprinted when their validity bits in `CFSR` say they are meaningful, so their\nabsence from a dump is information too: the fault was not one that latches an\naddress."
+  },
+  {
+    "id": "cads-zero-docs-10",
+    "sourceId": "cads-zero-docs",
+    "section": "Reproduce a fault on demand",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#reproduce-a-fault-on-demand",
+    "text": "You do not have to wait for a real fault to exercise all of the above. The\nexplorer has one destructive command that exists solely to prove the fault path\nworks end to end:\n\n```\nz FAULT\n```\n\nIt executes `udf #0`, a deliberately-undefined instruction. It **halts the\nfirmware for good** — a reset or reflash is the only way back — which is why it\ndemands the literal argument `FAULT` and refuses a bare `z` with an explanation\nrather than tripping on a fat-fingered keystroke.\n\nRun against real hardware it produced a clean, verifiable signature:\n`UsageFault`, `CFSR = 0x00010000` (bit 16, `UNDEFINSTR` — exactly what `udf`\nshould set and nothing else), `HFSR = 0x00000000` (proving it was handled as a\nUsageFault *directly*, not escalated to HardFault, which is the on-hardware\nconfirmation that the `SHCSR` enable in `cads_fault_init()` is actually live),\nand `MMFAR`/`BFAR` correctly absent. The board then went silent — a clean halt,\nnot a crash loop. That is the reference reading; a dump that differs from it is\ntelling you something."
+  },
+  {
+    "id": "cads-zero-docs-11",
+    "sourceId": "cads-zero-docs",
+    "section": "Reproduce a fault on demand",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#reproduce-a-fault-on-demand",
+    "text": "The register values in the sample dump above (`R0`…`PC`) are shown as `0x……`\non purpose: they identify the faulting instruction and its operands and differ\nevery run. `CFSR`/`HFSR` are the diagnostic payload, and those are the values\nthat were verified."
+  },
+  {
+    "id": "cads-zero-docs-12",
+    "sourceId": "cads-zero-docs",
+    "section": "The explorer console as a live probe",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#the-explorer-console-as-a-live-probe",
+    "text": "Most of this board cannot report its own state without a driver you already\ntrust — the display bus is write-only, the GPIO banks and the Ethernet PHY have\nno back channel to a human. The bring-up explorer is that channel. When a\nsymptom shows up, it is usually faster to interrogate the subsystem live than to\nattach GDB. The mapping from symptom to command:"
+  },
+  {
+    "id": "cads-zero-docs-13",
+    "sourceId": "cads-zero-docs",
+    "section": "The explorer console as a live probe",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#the-explorer-console-as-a-live-probe",
+    "text": "| Symptom | Reach for | Why this one |\n|---|---|---|\n| A button does nothing, or the wrong thing | `w <sec>`, then `i` | `w` watches every port's input register for changes — press the button and see which pin moves. `i` dumps all of them once for a static baseline. |\n| Buttons map to the wrong labels | `s <sec>` | Streams the debounced `S0..S7` state with key names, so you confirm the mapping without a rebuild. |\n| Touch registers nothing at all | `Q` (board-only), then `q` | `Q` prints the *raw* XPT2046 ADC counts, ignoring the pressed/IRQ logic entirely — it answers whether the SPI link to the controller is alive independent of any one pin. `q` soaks for ghost touches once it is. |\n| A task looks starved or a stack looks tight | `k` | Reports per-task stack high-water marks, the task count, and input counters — the first read for \"is something overflowing or not running\". |\n| Ethernet link behaves oddly | `e`, `a`, `n`, then `m` | `e`/`a`/`n` talk to the PHY over MDIO *below* lwIP, so they work whether or not a netif is up. `m` reads the MAC's own MMC counters over no bus at all — it answers even when the PHY is unresponsive. Suspect the wire before the stack."
+  },
+  {
+    "id": "cads-zero-docs-14",
+    "sourceId": "cads-zero-docs",
+    "section": "The explorer console as a live probe",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#the-explorer-console-as-a-live-probe",
+    "text": "|\n| A storage (`u`) gate fails | `y` | The raw flash-driver diagnostic, bypassing littlefs entirely — it isolates a hardware/driver fault from a filesystem one. |\n| Display throughput seems off | `V` | Re-measures full-screen flush throughput under real scheduler + live-netif contention, so a regression shows up as a number. |"
+  },
+  {
+    "id": "cads-zero-docs-15",
+    "sourceId": "cads-zero-docs",
+    "section": "The explorer console as a live probe",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#the-explorer-console-as-a-live-probe",
+    "text": "`Q` is worth calling out because it is *not* in the reference table above — it is\na board-only diagnostic (`#ifdef CADS_TARGET_ITSBOARD`) added mid-investigation\nwhen a live report of \"touch never registering\" turned out to be `TP_IRQ`\n(PE13) never toggling, found with a port-wide `w` watch. It is the shape a good\ndiagnostic takes: it removes one suspected pin from the question so the rest can\nbe answered.\n\nFor the full command set, arguments, and defaults, see\n[the explorer console reference](../reference/explorer-console.md). To drive one\ncommand non-interactively from a host shell rather than an open terminal, use\n`scripts/board_cmd.py <letter> [arg] --timeout N`.\n\nTo drive the *touchscreen GUI itself* non-interactively - navigate menus,\nopen an app, confirm an active tool's dialog - from a host shell with\nnobody at the board, use `scripts/board_key.py <key> [<key>...]` (see the\nconsole reference's \"Driving the GUI headlessly\" section). Combine it with\na webcam pointed at the panel, or `board_cmd.py S <sec>`'s TCP framebuffer\nstream, to verify what actually rendered rather than assuming."
+  },
+  {
+    "id": "cads-zero-docs-16",
+    "sourceId": "cads-zero-docs",
+    "section": "Debugging the tooling itself",
+    "url": "https://scimbe.github.io/cads-zero/how-to/debug/#debugging-the-tooling-itself",
+    "text": "The host-side tools are dependency-free Python 3 on purpose — the hardware gate\nhas to run on a bare checkout with nothing but a system Python — which means the\ntooling occasionally has to get a low-level detail right that a library would\nhave hidden. The canonical example is worth internalising before you lose an\nhour to it.\n\nIf the console is silent and you are tempted to loop `stty` over baud rates:\n**do not.** On macOS, `stty -f /dev/cu.usbmodemXXXX 115200 raw` opens the\ndevice, applies the settings, and closes it again — and closing the last\ndescriptor resets the line discipline, so the next reader gets the 9600 default\nno matter what was requested. Every baud rate produces identical garbage, and it\nlooks exactly like a hardware fault. The fix is to open the port once and set\n`termios` on that same descriptor, which is what `scripts/cads_serial.py`'s\n`open_console()` does and why the module exists at all — its header comment is\nthe primary account. The operational version of this, from the\ngate's side, is in [Run the hardware gate](board-test.md#if-the-console-stays-silent);\nreach for `cads_serial.py` rather than shelling out to `stty`."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Run the hardware gate",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#run-the-hardware-gate",
+    "text": "```bash\nscripts/board_test.py                 # build, flash, run\nscripts/board_test.py --no-build      # flash the existing image and run\nscripts/board_test.py --no-flash      # reset whatever is on the board and listen\nscripts/board_test.py --list-ports\n```\n\nIt builds, flashes, resets the board, and reads a TAP stream over the ST-Link's\nvirtual COM port. Exit code 0 only if every assertion passed and the announced\ncount arrived."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Why this exists",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#why-this-exists",
+    "text": "The display bus is write-only, so software cannot ask the panel whether a write\nlanded. A green CI build proves the code compiles, not that it runs on silicon.\nNo milestone is done until this passes."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Reading a failure",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#reading-a-failure",
+    "text": "| Exit | Meaning |\n|---|---|\n| 1 | An assertion reported `not ok`, or the firmware reported FAIL |\n| 2 | No `# RESULT:` line arrived — the board faulted, or the port is wrong |\n| 3 | The plan announced N assertions and fewer arrived — the firmware died part way |\n\nCode 3 is the useful one: it catches a firmware that stops half way through and\nwould otherwise look like it simply printed less."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Picking the port",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#picking-the-port",
+    "text": "The ST-Link's VCP enumerates as `/dev/cu.usbmodem<digits>` on macOS. Devices with\nletters in the suffix carry their own USB serial string and are something else,\nso they are filtered out — testing against an unrelated adapter cost real time\nonce.\n\n```bash\nscripts/board_test.py --port /dev/cu.usbmodem11303\nCADS_CONSOLE_PORT=/dev/cu.usbmodem11303 scripts/board_test.py\n```"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "If the console stays silent",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#if-the-console-stays-silent",
+    "text": "Do not reach for `stty` and a loop over baud rates. `stty -f /dev/cu.X` opens\nthe device, applies the settings, and closes it again — and closing the last\ndescriptor resets the line discipline, so the next reader gets the 9600 default\nno matter what was requested. Every baud rate you try produces the same garbage\nand it looks exactly like a hardware fault.\n\nThe baud rate must be set with `termios` on the same descriptor that is read\nfrom. `scripts/cads_serial.py` does that; use it rather than shelling out."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "Everything runs under a timeout",
+    "url": "https://scimbe.github.io/cads-zero/how-to/board-test/#everything-runs-under-a-timeout",
+    "text": "Probes and serial ports hang. Every subprocess call and every read has a\ndeadline, because a gate that can hang forever is worse than one that fails."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Build and flash your first image",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#build-and-flash-your-first-image",
+    "text": "From a fresh clone to a test pattern on the panel. Ten minutes."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "1. Clone with submodules",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#1-clone-with-submodules",
+    "text": "```bash\ngit clone --recurse-submodules https://github.com/scimbe/cads-zero\ncd cads-zero\n```\n\nIf you already cloned without them:\n\n```bash\ngit submodule update --init --recursive\n```\n\nSix submodules: CMSIS, the STM32F4 device headers, FreeRTOS, lwIP, littlefs and\nUnity. All permissive licences; see [Clean room](../explanation/clean-room.md)."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "2. Build",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#2-build",
+    "text": "```bash\nscripts/build.sh\n```\n\nThe Arm toolchain is found automatically in the vcpkg artifact tree. You should\nend with:\n\n```\nMemory region         Used Size  Region Size  %age Used\n       FLASH_APP:       13412 B         1 MB      1.28%\n             RAM:      107712 B       192 KB     54.79%\n```\n\nMost of that RAM is the framebuffer — 75 KB of it — and the staging buffers.\n[Why 4 bpp](../explanation/why-4bpp.md) explains the arithmetic."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "3. Check the board is there",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#3-check-the-board-is-there",
+    "text": "```bash\nst-info --probe\n```\n\n```\nFound 1 stlink programmers\n  serial:     066FFF565282494867161033\n  chipid:     0x419\n  dev-type:   STM32F42x_F43x\n```"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Flash and test in one step",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#4-flash-and-test-in-one-step",
+    "text": "```bash\nscripts/board_test.py\n```\n\nThis builds, flashes, resets, and reads the self test back over the ST-Link's\nserial port. It ends with:\n\n```\nPASS: 9/9 assertions on real hardware\n```"
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Look at the panel",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#5-look-at-the-panel",
+    "text": "The software cannot check this part. The display bus is write-only — there is no\nreadback path — so a human has to confirm the picture. You should see:\n\n- a **CaDS blue** bar across the top with a **green** line under it\n- sixteen palette swatches below it, the whole 16-colour palette\n- four corner markers: red, green, amber, teal\n- two white diagonals crossing the lower half\n- a grey frame around the drawing area\n\nThen touch the panel. Green squares should follow your finger, and the console\nprints the coordinates.\n\n**If the header bar is at the bottom**, the scan direction is inverted.\n**If the colours look wrong**, the RGB565 byte order is. Both are exactly what\nthe pattern is designed to expose."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "Next",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-build/#next",
+    "text": "[Read the on-target test](first-gate.md) — what those nine assertions actually\ncheck, and what the numbers mean."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Read the on-target test",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#read-the-on-target-test",
+    "text": "What the hardware gate checks and how to read its output."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "The output",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#the-output",
+    "text": "```\n========================================\n CaDS Zero - milestone 0 bring-up\n build Aug 17 2026 17:28:57\n========================================\n1..9\nok 1 - SysTick advances at 1 kHz\nok 2 - DWT microsecond clock agrees"
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "dwt_us_over_50ms: 50014",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#dwtusover50ms-50014",
+    "text": "ok 3 - canvas 4 bpp pixel round trip\nok 4 - canvas fill_rect handles unaligned edges\nok 5 - canvas clipping confines drawing\nok 6 - full screen flush transfers every pixel"
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "flush_kpixel_per_s: 342",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#flushkpixelpers-342",
+    "text": "ok 7 - dirty rectangle limits the transfer"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "partial_us: 4717",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#partialus-4717",
+    "text": "ok 8 - adapter output banks driven without fault\nok 9 - reached the end of the self test"
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "RESULT: PASS",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#result-pass",
+    "text": "```\n\nThis is TAP. `1..9` is the plan, `ok`/`not ok` are assertions, `#` lines are\ndiagnostics. The format is deliberate: \"the screen looked right\" cannot be a\ngate, `ok 4` can."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "What each assertion is defending against",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#what-each-assertion-is-defending-against",
+    "text": "**1 and 2 — the time base.** SysTick and the DWT cycle counter are independent\nsources. Checking them against each other catches more than checking either\nalone: a wrong PLL multiplier skews both together, a wrong SysTick reload skews\nonly one. `50014 µs` over 50 ms is 0.03 % error.\n\n**3 — nibble packing.** Two pixels share a byte. Getting the high and low nibble\nthe wrong way round produces a subtly mirrored image and no other symptom, which\nis the kind of bug that survives a casual look at the screen.\n\n**4 — ragged edges.** `fill_rect` uses `memset` for the aligned middle and\nread-modify-write for the odd pixel at each end. The test fills a 7-wide\nrectangle starting at x=3 so both edges are ragged, and checks the pixels just\noutside are untouched.\n\n**5 — clipping.** Draws a full-screen rectangle inside a 50×50 clip and verifies\nnothing escaped.\n\n**6 and 7 — the display path, and the numbers that matter.** See below.\n\n**8 — adapter I/O.** Drives the output banks with alternating patterns and reads\nthe inputs back. Only PD and PE are driven; PF and PG are read-only by policy\n([Safety](../SAFETY.md#3-respect-pin-directions-on-the-its-adapter))."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "The numbers",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#the-numbers",
+    "text": "<div class=\"measured\" markdown>\n\n`flush_kpixel_per_s: 342` — the theoretical maximum for this bus at the `/16`\ndivider is 351 kpixel/s. The driver is at **97 %** of it, so there is no\ninefficiency left in software.\n\n`flush_us: 448233` — a full screen costs **448 ms**.\n\n`partial_us: 4717` for 1 600 pixels — the same rate, confirming dirty rectangles\nscale linearly rather than silently promoting to full-screen.\n\n</div>\n\nIf `flush_kpixel_per_s` drops meaningfully below 340, something has been added\nto the per-blit path. If `partial_pixels` ever reads 153600, damage tracking has\nbroken. See [Why dirty rectangles are\nmandatory](../explanation/dirty-rectangles.md)."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "When it fails",
+    "url": "https://scimbe.github.io/cads-zero/tutorials/first-gate/#when-it-fails",
+    "text": "| Symptom | Likely cause |\n|---|---|\n| No output at all | Wrong serial port, or a fault before the console came up |\n| Plan says 9, fewer arrive | The firmware died part way — attach GDB |\n| `not ok 1` or `2` | Clock tree — check `RCC_CFGR` bits 3:2 read `10` |\n| `not ok 3` or `4` | Canvas nibble packing |\n| `not ok 6` | Damage tracking or the blit path |\n\n[Debug with GDB](../how-to/debug.md) has the register reads for each of these."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "HAL interface",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#hal-interface",
+    "text": "The boundary between portable code and hardware. Header: `core/cads_hal.h`.\n\nEverything above this line compiles unchanged for the board and for the host\nsimulator. Two implementations exist: `targets/itsboard/` against STM32F429\nregisters, and `targets/sim/` against SDL2.\n\nTo bring up different hardware, see\n[Port to different hardware](../how-to/port-to-new-board.md)."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Board identity",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#board-identity",
+    "text": "```c\nconst cads_board_info_t* board = cads_hal_board_info();\n```\n\nAsk this rather than assuming. The fields that matter most:\n\n| Field | Why it exists |\n|---|---|\n| `display_width` / `display_height` | the panel's size, which is not necessarily the framebuffer's |\n| `display_readable` | **false** here: the bus has no return path, so nothing can read video memory back |\n| `button_count` | the soft-key strip sizes itself from this |\n| `display_pixels_per_second` | measured, 342 000 — a GUI deciding whether an animation is affordable should look it up |\n| `has_network` / `has_touch` / `has_storage` | capability tests instead of board tests |\n\n`CADS_DISPLAY_WIDTH` / `HEIGHT` are the **compile-time maxima** the static\nframebuffer is sized from. Layout code should use the descriptor."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Lifecycle",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#lifecycle",
+    "text": "```c\nvoid cads_hal_early_init(void);   /* clocks; runs before the C runtime is usable */\nvoid cads_hal_init(void);         /* everything else */\n```"
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Time",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#time",
+    "text": "```c\nuint32_t cads_hal_ticks_ms(void);\nuint64_t cads_hal_ticks_us(void);\nvoid cads_hal_delay_us(uint32_t us);\nvoid cads_hal_delay_ms(uint32_t ms);\n```\n\nDerived from the DWT cycle counter, not from a tick interrupt, so time is\ncorrect inside critical sections and ISRs. SysTick belongs to the scheduler."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Display",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#display",
+    "text": "```c\nvoid cads_hal_display_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h,\n                           const uint16_t* pixels);\nbool cads_hal_display_busy(void);\nvoid cads_hal_display_wait(void);\nvoid cads_hal_display_backlight(uint8_t percent);\nvoid cads_hal_display_set_fast_clock(bool fast);\n```\n\nTwo contracts that are easy to violate:\n\n- `pixels` must stay valid until `cads_hal_display_busy()` returns false — the\n  transfer is handed to DMA and the call returns immediately.\n- On hardware the buffer must live in **DMA-capable SRAM**. CCM is invisible to\n  every DMA controller on this part, and a transfer from there produces nothing\n  at all, with no error."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "Touch, buttons, indicators",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#touch-buttons-indicators",
+    "text": "```c\nvoid cads_hal_touch_read(cads_touch_state_t* state);\nuint8_t cads_hal_adapter_inputs(void);       /* bit n = Sn pressed */\nuint8_t cads_hal_adapter_interrupts(void);\nvoid cads_hal_adapter_outputs(uint16_t value);\nvoid cads_hal_led_set(cads_led_t led, bool on);\nbool cads_hal_user_button(void);\n```\n\n`cads_hal_adapter_inputs()` already inverts the board's active-low wiring, so a\nset bit means pressed regardless of the hardware's polarity. That inversion\nlives here and nowhere else."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "Console",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#console",
+    "text": "```c\nvoid cads_hal_console_write(const void* data, size_t length);\nbool cads_hal_console_read(uint8_t* byte);\nuint32_t cads_hal_console_dropped(void);\nuint32_t cads_hal_console_overruns(void);\n```\n\nReceive is interrupt driven with a ring buffer, and that is a requirement\nrather than an optimisation: the STM32F4 USART has a one-byte receive register\nwith no FIFO, so at 115200 baud any polling loop slower than 87 µs drops\ncharacters. The two counters exist so such loss can never again be silent —\nit once presented as a display fault."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "Panic",
+    "url": "https://scimbe.github.io/cads-zero/reference/hal/#panic",
+    "text": "```c\n__attribute__((noreturn)) void cads_hal_panic(const char* reason);\n```\n\nPrints, lights the red LED, and halts with the machine intact for a debugger.\nWith no debugger attached the breakpoint escalates to a lock-up, which is the\nintended safe failure mode rather than a reset loop that hides the cause."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Memory map",
+    "url": "https://scimbe.github.io/cads-zero/reference/memory-map/#memory-map",
+    "text": "Where everything lives on the STM32F429ZI, and which of it a DMA controller can\nreach — the constraint that shapes most of the layout."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Flash",
+    "url": "https://scimbe.github.io/cads-zero/reference/memory-map/#flash",
+    "text": "2 MB in **two banks**, which is why a firmware update cannot destroy the\nfilesystem: the part supports read-while-write across banks, and nothing in\nthis repository ever issues a chip erase.\n\n| Region | Address | Size | Sectors | Use |\n|---|---|---|---|---|\n| `FLASH_APP` | `0x08000000` | 1024 KB | bank 1, 0–11 | firmware |\n| reserved | `0x08100000` | 128 KB | bank 2, 12–16 | left erased |\n| `FLASH_FS` | `0x08120000` | 896 KB | bank 2, 17–23 | littlefs volume |\n\nSector geometry within a bank is not uniform: sectors 0–3 are 16 KB, sector 4\nis 64 KB, sectors 5–11 are 128 KB. The filesystem uses only the 128 KB sectors\nso its block size is constant.\n\nThe linker asserts the firmware fits in bank 1, `scripts/flash.sh` refuses an\nimage larger than 1 MB, and CI fails if any section lands above `0x08100000`.\nThree independent checks, because overwriting the filesystem is silent."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "RAM",
+    "url": "https://scimbe.github.io/cads-zero/reference/memory-map/#ram",
+    "text": "| Region | Address | Size | DMA | Use |\n|---|---|---|---|---|\n| SRAM1+2+3 | `0x20000000` | 192 KB | **yes** | framebuffer, staging, buffers |\n| CCM | `0x10000000` | 64 KB | **no** | task stacks, main stack |\n\n**CCM is invisible to every DMA controller on this part.** A transfer sourced\nfrom `0x10000000` silently produces nothing — no fault, no error flag, just\nwrong output. That single fact drives the split:\n\n- anything a peripheral will read goes in `.dmaram`, explicitly, so its\n  placement is visible in the map file;\n- anything the CPU alone touches goes in CCM, where it costs nothing scarce."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Current usage",
+    "url": "https://scimbe.github.io/cads-zero/reference/memory-map/#current-usage",
+    "text": "Measured after the kernel landed:\n\n| | Used | Available |\n|---|---|---|\n| Flash (bank 1) | 84 KB | 1 MB |\n| SRAM | 112 KB | 192 KB |\n| CCM | 5 KB | 64 KB |\n\nSRAM breaks down as 75 KB framebuffer (480×320 at 4 bpp) plus 30 KB of RGB565\nstaging buffers plus statics. CCM holds three task stacks and nothing else —\nthere is **no kernel heap**, because FreeRTOS is configured for static\nallocation only. See [the kernel configuration](https://github.com/scimbe/cads-zero/blob/main/modules/kernel/src/FreeRTOSConfig.h)."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Sections",
+    "url": "https://scimbe.github.io/cads-zero/reference/memory-map/#sections",
+    "text": "| Section | Region | Notes |\n|---|---|---|\n| `.isr_vector` | flash | 107 entries, generated from the CMSIS header |\n| `.text` `.rodata` | flash | |\n| `.data` | SRAM (loaded from flash) | |\n| `.ramfunc` | SRAM (loaded from flash) | flash erase/program, so it never executes from the memory it is writing |\n| `.bss` | SRAM | |\n| `.dmaram` | SRAM | framebuffer and staging, placement guaranteed |\n| `.ccm` | CCM | task stacks |\n| main stack | CCM, top 4 KB | grows down, away from `.ccm` |\n\nThe linker asserts `.ccm` does not collide with the main stack and that at\nleast 48 KB of SRAM remains free, so a change that quietly squeezes out lwIP\nfails the build rather than the field."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Module layout",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#module-layout",
+    "text": "CaDS Zero is built as a set of independent libraries rather than one firmware\nblob. Each module is a CMake target with a declared public surface, and the\nbuild enforces the boundaries — a module that reaches into another's internals\ndoes not compile."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Why",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#why",
+    "text": "Three reasons, in order of how much they cost when ignored:\n\n1. **The simulator.** Everything above the HAL has to build for the host as\n   well as for the board. That only stays true if the dependency on hardware is\n   confined to one module with a declared interface, rather than diffused\n   through `#include \"stm32f4xx.h\"` in whatever file needed a register.\n2. **Parallel work.** Work packages are handed to independent agents. A module\n   with a narrow public header can be implemented, reviewed and merged without\n   reading the rest of the tree — which is also what keeps a package inside a\n   200k-token context window.\n3. **Reuse.** The canvas, the font renderer and the toolbox are not specific to\n   this firmware. Anything that is generic should be usable by the next project\n   without carrying this one along."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "Anatomy",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#anatomy",
+    "text": "```\nmodules/<name>/\n  include/cads/<name>/*.h    public API, the only thing dependents may include\n  src/*.c *.h                implementation, private headers live here\n  tests/*.c                  host unit tests, run by ctest\n  README.md                  what it is, what it depends on, how to use it\n  CMakeLists.txt\n```\n\nThe include path is `cads/<name>/…` rather than a bare filename, so a\n`#include` says where a type comes from:\n\n```c\n#include \"cads/canvas/canvas.h\"     /* obvious */\n#include \"canvas.h\"                 /* which canvas? */\n```"
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "CMake contract",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#cmake-contract",
+    "text": "```cmake\nadd_library(cads_canvas STATIC src/canvas.c src/text.c)"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Public: dependents get this. Private: only this module's sources.",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#public-dependents-get-this-private-only-this-modules-sources",
+    "text": "target_include_directories(cads_canvas\n    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include\n    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)\n\ntarget_link_libraries(cads_canvas PUBLIC cads_hal_api cads_font PRIVATE cads_flags)\n```\n\n`PRIVATE` on the include directory is the part that does the work: it makes a\nmodule's own headers unreachable from outside, so the public header is the only\nway in and stays honest."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "The dependency rule",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#the-dependency-rule",
+    "text": "Dependencies point **downwards only**, and the graph is acyclic:\n\n```\n        apps/            desktop, menu, tools\n          │\n        gui/             views, widgets, compositor\n          │\n   canvas ─┴─ input ─ storage ─ net        feature modules\n     │         │         │        │\n     └─────────┴────┬────┴────────┘\n                    │\n                 hal_api            the interface, no implementation\n                    │\n        ┌───────────┴───────────┐\n   targets/itsboard        targets/sim     the two implementations\n```\n\nA feature module never includes a target header. `hal_api` is headers only,\nwhich is what lets the same object files link against either backend."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "Module inventory",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#module-inventory",
+    "text": "| Module | Reusable beyond this project | Depends on |\n|---|---|---|\n| `toolbox` | yes, entirely generic | — |\n| `hal_api` | interface only | — |\n| `font` | yes, any 1 bpp glyph renderer | toolbox |\n| `canvas` | yes, any indexed framebuffer | hal_api, font |\n| `assets` | no, CaDS branding | canvas |\n| `input` | partly, the debounce logic is generic | hal_api, toolbox |\n| `gui` | yes | canvas, input |\n| `storage` | partly, littlefs glue is generic | hal_api |\n| `net` | no, board specific | hal_api |"
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "Documentation standard",
+    "url": "https://scimbe.github.io/cads-zero/reference/module-layout/#documentation-standard",
+    "text": "Every module carries a `README.md` that answers four questions, in this order:\n\n1. **What is it?** One paragraph.\n2. **Why is it shaped this way?** The constraints that forced the design. This\n   is the part that stops someone \"simplifying\" a decision that was load\n   bearing — the canvas being 4 bpp looks arbitrary until you know a truecolour\n   buffer is 300 KB and there are 192 KB.\n3. **How do I use it?** A short, complete example that compiles.\n4. **What are the limits?** What it deliberately does not do.\n\nPublic headers document *contracts* — ownership, validity, threading, units.\nImplementation comments explain *why*, never *what*: the code already says what."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "The toolchain, and why it comes from vcpkg",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#the-toolchain-and-why-it-comes-from-vcpkg",
+    "text": "The mechanical version of this — where the compiler is, how to override it, what\nthe size report means — is [Build the firmware](../how-to/build.md). This page\nis the part that is not in the build script: *why* the toolchain is what it is,\nwhat is actually pinned and what only looks pinned, and the one honest gap in\nthe reasoning."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "What the build uses",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#what-the-build-uses",
+    "text": "One compiler, one build system, one target trunk:\n\n- **`arm-none-eabi-gcc`** — the Arm GNU bare-metal toolchain (GCC, `binutils`,\n  `newlib`), targeting `arm-none-eabi`. It is the only toolchain the ITSboard\n  target builds with. There is no Arm Compiler 6 / `armclang` project, no IAR\n  project, no CMSIS-Toolbox `csolution` in this repository — `cmake/arm-none-eabi-gcc.cmake`\n  is the single toolchain file, and every firmware `CMakeLists.txt` is written\n  against GCC and its linker.\n- **CMake (≥ 3.20) driving Ninja** — `scripts/build.sh` configures with\n  `-G Ninja` and points `CMAKE_TOOLCHAIN_FILE` at that one toolchain file.\n- **The `st-link` host tools** (`st-flash`, `st-util`) for writing and debugging\n  the board — see [Flash the board](../how-to/flash.md) and [Debug with GDB](../how-to/debug.md).\n  These are a separate concern from the compiler and are *not* provisioned the\n  way it is; more on that below.\n\nThe architecture flags are fixed in the toolchain file, not scattered across\ntargets (`cmake/arm-none-eabi-gcc.cmake`):\n\n```\n-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard\n--specs=nano.specs --specs=nosys.specs\n```"
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "What the build uses",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#what-the-build-uses",
+    "text": "That is the STM32F429ZI's core stated exactly: a Cortex-M4 with the\nsingle-precision `FPv4-SP-D16` FPU, built for the hard-float ABI so floating\npoint goes through the FPU registers rather than a soft-float library. `nano.specs`\nselects the size-optimised `newlib-nano` C library; `nosys.specs` supplies stub\nsyscalls for a system with no OS underneath libc. The language is C11, and it is\nrequired rather than merely requested (`CMAKE_C_STANDARD 11` /\n`CMAKE_C_STANDARD_REQUIRED ON` in the root `CMakeLists.txt`). The no-heap policy\nthat the rest of the firmware depends on is enforced by the linker script, not by\nthese flags — that is its own decision, documented where it bites."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "Where the compiler actually comes from",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#where-the-compiler-actually-comes-from",
+    "text": "The build does not assume `arm-none-eabi-gcc` is on your `PATH`. It resolves it\nout of a specific directory tree:\n\n```\n~/.vcpkg/artifacts/*/compilers.arm.arm.none.eabi.gcc/*/bin\n```\n\nThat path is not arbitrary, and this is the crux of the page. It is the\n**vcpkg artifact tree that the Keil Studio VS Code extension manages**\n(`scripts/cads_env.sh`, `cmake/arm-none-eabi-gcc.cmake`). Keil Studio — Arm's\nVS Code-based embedded environment — provisions its Arm GNU toolchain, its CMake,\nand its Ninja through vcpkg's *artifact* mechanism (tool acquisition, distinct\nfrom vcpkg's better-known C/C++ library ports), and drops them under\n`~/.vcpkg/artifacts/…`. `scripts/cads_env.sh` reaches into that same tree for all\nthree:\n\n```\ncompilers.arm.arm.none.eabi.gcc   → the compiler\ntools.kitware.cmake               → CMake\ntools.ninja.build.ninja           → Ninja\n```"
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Where the compiler actually comes from",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#where-the-compiler-actually-comes-from",
+    "text": "So the honest one-sentence answer to \"why vcpkg?\" is: **because that is where the\ntoolchain already is.** The board is developed inside Keil Studio; Keil Studio\ninstalls the Arm toolchain via vcpkg; the build scripts consume what is already\nprovisioned rather than asking the developer to install a second copy by another\nroute. It is a single-source-of-truth convenience, not a package-management\nphilosophy."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "What is *not* recorded",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#what-is-not-recorded",
+    "text": "The build reason above is real and discoverable in the repository. What is **not**\nanywhere in the repository is a deliberation that weighed vcpkg against the\nalternatives — a system package (`brew install arm-none-eabi-gcc`, a distro\npackage), Arm's own standalone installer, or a container image with the toolchain\nbaked in. No commit message, no design note, and no roadmap entry compares them.\nThe roadmap task that asked for this very page frames the toolchain choice as\nbeing \"over alternatives\" without saying which alternatives were rejected or on\nwhat grounds (`docs/ROADMAP.md`, milestone M8).\n\nThis page will not invent that comparison. Absent a stated reason, the vcpkg\nprovenance is best read as *the default that fell out of the development\nenvironment* rather than a decision taken against a field of contenders. If a\nreason beyond \"it is what Keil Studio installs\" ever existed, it was not written\ndown, and a future reader should treat the choice as open to revisiting rather\nthan as load-bearing."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "It is a default, not a requirement",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#it-is-a-default-not-a-requirement",
+    "text": "The vcpkg tree is where the build *looks first*, but nothing forces it. Two\noverrides exist, both grounded in `cmake/arm-none-eabi-gcc.cmake` and\n`scripts/build.sh`:\n\n- Set **`CADS_ARM_TOOLCHAIN_BIN`** to the `bin` directory of any\n  `arm-none-eabi-gcc` you like. This wins over the vcpkg glob unconditionally.\n- Put an `arm-none-eabi-gcc` on `PATH` and supply neither the variable nor a\n  vcpkg tree; the toolchain file falls back to the bare `arm-none-eabi-` prefix\n  and lets `PATH` resolve it.\n\nThis is precisely the escape hatch a contributor who does not use Keil Studio\nneeds. A system package or Arm's installer works identically once its `bin`\ndirectory is named — the build does not care *how* the compiler was installed,\nonly that it can find one. Which is also why the absence of a recorded\nalternatives comparison costs little in practice: the decision is cheap to\nreverse per-developer."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "What \"13.3.1\" is, and what it is not",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#what-1331-is-and-what-it-is-not",
+    "text": "The current toolchain is `arm-none-eabi-gcc` **13.3.1**. That number is worth\nstating carefully, because it is easy to mistake for a pin, and it is not one.\n\nNothing in the repository pins a toolchain version. The resolver takes the\n*newest* toolchain it finds:\n\n- the CMake file globs every `…/compilers.arm.arm.none.eabi.gcc/*/bin`, sorts the\n  matches, and takes the last (`cmake/arm-none-eabi-gcc.cmake`);\n- `scripts/cads_env.sh` does the same with `sort -V | tail -1`.\n\nThere is no version string in any `.cmake`, `.sh`, or manifest file in the tree\n(the only `vcpkg-configuration.json` files present belong to the vendored\n`lib/CMSIS_6` submodule and have nothing to do with selecting *this* build's\ncompiler). So **13.3.1 is the version installed today, observed, not the version\nrequired.** Install a newer Arm GNU toolchain through Keil Studio and the next\nconfigure will pick it up with no change to the repository; that is the resolver\nworking as designed, not drift."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "What \"13.3.1\" is, and what it is not",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#what-1331-is-and-what-it-is-not",
+    "text": "This is a deliberate trade — zero maintenance to track Keil Studio's updates, in\nexchange for a build whose exact compiler is defined by the developer's machine\nrather than the repository. For a single-maintainer board that is a reasonable\nplace to land. It also means the version this documentation names will go stale;\ntrust `arm-none-eabi-gcc --version` on the machine in front of you over this\nsentence. CI installs its own toolchain and is the closest thing to a canonical\nversion — see the `firmware` job in `.github/workflows/ci.yml`."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "Reproducing a working build from nothing",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#reproducing-a-working-build-from-nothing",
+    "text": "A from-scratch environment needs four things beyond a checkout. The mechanics are\nin [Build the firmware](../how-to/build.md); the point here is *why each is on\nthe list*."
+  },
+  {
+    "id": "cads-zero-docs-10",
+    "sourceId": "cads-zero-docs",
+    "section": "Reproducing a working build from nothing",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#reproducing-a-working-build-from-nothing",
+    "text": "1. **The submodules.** The vendored dependencies — CMSIS, the STM32F4 CMSIS\n   device headers, the FreeRTOS kernel, littlefs, Unity, and lwIP — live as git\n   submodules (`.gitmodules`). Clone with `--recurse-submodules`; a plain clone\n   configures and then fails to compile against headers that are not there.\n2. **An `arm-none-eabi-gcc`.** From Keil Studio's vcpkg tree if you use it\n   (nothing further to do), or from anywhere else with `CADS_ARM_TOOLCHAIN_BIN`\n   or `PATH` pointed at it. Cortex-M4F hard-float support is the only real\n   requirement, which any current Arm GNU toolchain has.\n3. **CMake ≥ 3.20 and Ninja.** Also supplied by the vcpkg tree; a system CMake\n   and Ninja are fine if you are not using Keil Studio.\n4. **A Python 3 interpreter.** The build itself calls it —\n   `find_package(Python3 … REQUIRED)` in the root `CMakeLists.txt` — for the\n   code-generation steps (the vector table among them), and the entire\n   hardware-facing tool suite under `scripts/` is dependency-free Python 3 by\n   design."
+  },
+  {
+    "id": "cads-zero-docs-11",
+    "sourceId": "cads-zero-docs",
+    "section": "Reproducing a working build from nothing",
+    "url": "https://scimbe.github.io/cads-zero/explanation/toolchain/#reproducing-a-working-build-from-nothing",
+    "text": "The `st-link` tools are the one thing on the critical path that the vcpkg tree\ndoes *not* provide. `scripts/flash.sh` and the debug flow call `st-flash` and\n`st-util` as bare commands, so they must be independently installed and on\n`PATH`. They are needed only to move the image onto the board and to debug it —\nnot to build it — which is why they sit outside the compiler-provisioning story\nentirely.\n\nA build that has compiled but never met the board does not count here; the\nreasoning for that, and the on-target gate that enforces it, is\n[Run the hardware gate](../how-to/board-test.md)."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "The decision",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#the-decision",
+    "text": "This firmware contains **no code from `flipperzero-firmware`**. Not copied, not\nadapted, not transliterated. The concepts are studied; the source is not used.\n\nThat was a deliberate choice with a licensing consequence attached."
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "Why it matters",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#why-it-matters",
+    "text": "`flipperzero-firmware` is **GPL-3.0**. Vendoring any meaningful part of it —\n`furi/`, the GUI stack, the app framework — makes this project GPL-3.0 too, and\nthat obligation travels with every copy that is distributed, private repository\nor not.\n\nThat may be perfectly acceptable. It simply has to be a decision rather than an\naccident, because it is not reversible after the fact: you cannot un-GPL a\ncodebase that has GPL code in its history.\n\nThe choice here was clean-room, so this project is **MIT** and the licence is a\nfree variable for whatever it grows into."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "What \"clean room\" means in practice",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#what-clean-room-means-in-practice",
+    "text": "**Allowed.** Reading the upstream project to understand what a good handheld\nfirmware does. Adopting architectural ideas: a service registry, a view\ndispatcher, a mascot with a mood. Naming things after the concept they\nimplement. Reading the public documentation.\n\n**Not allowed.** Copying a function, a struct layout, a constant table, or a\nfile and renaming it. \"Rewriting\" something with the original open beside you,\nwhich is transliteration and not independent work.\n\n**The tell.** If the answer to \"why is it shaped like this?\" is *because that is\nhow they did it*, it is a copy. If the answer is *because this board's display\nis write-only and 448 ms per frame*, it is independent work."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "How that shows up in the code",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#how-that-shows-up-in-the-code",
+    "text": "The prefix is `cads_`, not `furi_`. Not decoration — it is the visible marker\nthat these are different implementations with different constraints.\n\nThe mascot is **Leo, a lion**, taken from the CaDS group's own mark, rather than\na dolphin.\n\nMore substantively, the architecture diverges wherever the hardware does:\n\n| Upstream shape | Here | Because |\n|---|---|---|\n| 128×64 1 bpp canvas | 480×320 4 bpp indexed | 15× the pixels, and RGB565 would not fit in RAM |\n| u8g2 as the drawing library | own canvas | u8g2 is monochrome-oriented; the constraint here is nibble packing and DMA staging |\n| Full-buffer repaint | dirty-rectangle bounding box | a full screen costs 448 ms on this bus |\n| Buttons | touch, plus 14 adapter lines | there are no buttons |\n| SD card storage | littlefs in flash bank 2 | there is no card |\n| Sub-GHz / NFC / IR services | network services | there are no radios |\n\nNearly every one of those rows is a place where copying upstream would have\nproduced something that does not work here."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "What is vendored, and under what",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#what-is-vendored-and-under-what",
+    "text": "Third-party components are git submodules under permissive licences, all\ncompatible with MIT:\n\n| Component | Licence | Why |\n|---|---|---|\n| CMSIS_6 | Apache-2.0 | Cortex-M core headers |\n| cmsis_device_f4 | Apache-2.0 | STM32F4 register definitions |\n| FreeRTOS-Kernel | MIT | scheduler |\n| lwIP | BSD-3 | TCP/IP |\n| littlefs | BSD-3 | power-loss-resilient filesystem for raw flash |\n| Unity | MIT | unit test framework |\n\nNotably **not** vendored: ST's HAL. The drivers here are written against the\nregisters. That is not purity — it is that the ST HAL's init structs hide which\nbits actually changed, and on a board where one pin is contested between two\nperipherals, knowing exactly which register writes happen is the difference\nbetween a working display and a silent one."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "The one piece of borrowed data",
+    "url": "https://scimbe.github.io/cads-zero/explanation/clean-room/#the-one-piece-of-borrowed-data",
+    "text": "`hal_display.c` contains the ILI9486 power, gamma and timing register table\nfrom the Waveshare module's own example code.\n\nThat is **hardware configuration data, not creative code** — the `VGH`/`VGL`\nand `VCOM` values are electrical parameters of this specific panel. Re-deriving\nthem from the datasheet would risk getting a drive voltage wrong, and wrong\ndrive voltages are one of the few ways software can physically damage a TFT.\nReproducing a vendor's known-good register sequence for their own module is the\ncorrect engineering call, and it is documented as such where it appears."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "Hardware safety rules",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#hardware-safety-rules",
+    "text": "Binding for every change in this repository, and for every agent or human\nworking on it. The board is a NUCLEO-F429ZI with an ITS adapter and a Waveshare\n4\" shield stacked on top. Most of it is robust; a handful of things are not, and\nthose are enumerated here.\n\nThe rule of thumb: **when in doubt, do not drive the pin.**\n\n---"
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "1. Never touch the debug interface",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#1-never-touch-the-debug-interface",
+    "text": "| Pin | Function | Why |\n|---|---|---|\n| PA13 | SWDIO | Reconfiguring either pin costs debug access to the board. |\n| PA14 | SWCLK | Recovery then needs the BOOT0 jumper and a serial bootloader. |\n| PB3 | SWO | Trace output. Left alone so the pin stays available. |\n\nNothing in this firmware configures GPIOA pins 13/14 or GPIOB pin 3. The HAL\ninitialises pins one at a time by name rather than writing whole `MODER`\nregisters, specifically so that a stray port-wide write cannot take SWD out."
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "2. Never touch the clock input",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#2-never-touch-the-clock-input",
+    "text": "PH0/PH1 carry the 8 MHz clock the ST-Link's MCU feeds in. The PLL is configured\nfor `HSE_BYPASS`, which means PH0 is an *input*. Configuring it as an output\nfights the ST-Link's driver.\n\nDo not raise the clock beyond 180 MHz. Scale 1 plus over-drive plus 5 flash wait\nstates is the documented maximum for this part at 3.3 V, and it is what\n`hal_clock.c` sets."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "3. Respect pin directions on the ITS adapter",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#3-respect-pin-directions-on-the-its-adapter",
+    "text": "| Pins | Direction | Rule |\n|---|---|---|\n| PD0..PD7 | output | OUT0..7, LED bank. Safe to drive. |\n| PE0..PE7 | output | OUT8..15, LED bank. Safe to drive. |\n| PF0..PF7 | **input** | IN0..7. **Never configure as output.** |\n| PG0..PG5 | **input** | INT0..5. **Never configure as output.** |\n\nWhatever the adapter has wired to PF/PG may be actively driving those nets. Two\npush-pull drivers on one net is how boards die. `hal_io.c` configures them as\npulled-up inputs and never changes that."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Flash writes are confined to bank 2",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#4-flash-writes-are-confined-to-bank-2",
+    "text": "| Region | Address | Use |\n|---|---|---|\n| Firmware | `0x08000000` – `0x080FFFFF` | Bank 1, sectors 0..11. Written only by the flashing tool. |\n| Reserved | `0x08100000` – `0x0811FFFF` | Bank 2, sectors 12..16. Left erased. |\n| Filesystem | `0x08120000` – `0x081FFFFF` | Bank 2, sectors 17..23. The littlefs volume. |\n\nRules:"
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Flash writes are confined to bank 2",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#4-flash-writes-are-confined-to-bank-2",
+    "text": "- **No mass erase, ever.** `scripts/flash.sh` uses `st-flash write`, which\n  sector-erases only the range being written. A chip erase would take the\n  filesystem with it and, on a board configured for it, could touch option bytes. - The firmware's flash driver refuses any address below `0x08120000`. `scripts/flash.sh` additionally refuses an image larger than 1 MB, because such\n  an image would run past bank 1 into the filesystem window. - **Never write option bytes.** Setting read protection (RDP level 1 or 2) is\n  either annoying or permanent. Nothing in this repository writes `FLASH_OPTCR`. - Flash erase/program routines run from flash (bank 1), not `.ramfunc`. The\n  part is dual bank, so executing from bank 1 while erasing/programming bank 2\n  is legal and is what actually happens."
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "4. Flash writes are confined to bank 2",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#4-flash-writes-are-confined-to-bank-2",
+    "text": "An earlier revision placed these\n  routines in `.ramfunc` on the reasoning that running from RAM would remove\n  any doubt about that; on real hardware it did the opposite - the identical\n  operation run from `.ramfunc` produced an intermittent BusFault or a\n  spurious IO/verify error, while the same sequence run from flash has been\n  reliable every time it has been tried (`modules/storage/src/\n  cads_flash_stm32f4.c` has the full account). `.ramfunc` remains available\n  in the linker script for anything that genuinely needs RAM residency in the\n  future; flash writes do not."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Display and touch",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#5-display-and-touch",
+    "text": "- **The display bus is write-only.** There is no readback path through the\n  74HC4094 shift register chain, so the panel can never be queried for its\n  state. The RAM framebuffer is the only source of truth about what is on screen.\n- **Do not change the ILI9486 power and gamma registers** (`0xC0`, `0xC1`,\n  `0xC2`, `0xC5`, `0xE0`, `0xE1`, `0xF1`, `0xF2`, `0xF4`, `0xF8`) without a\n  datasheet reason. `VGH`/`VGL` and `VCOM` set panel drive voltages; wrong values\n  are one of the few ways software can physically damage a TFT. The table in\n  `hal_display.c` is the module vendor's and is reproduced exactly.\n- **Raising the SPI clock is a staged experiment, not an edit.** The limit is the\n  74HC4094 chain, not the panel. `/16` (5.6 MHz) is proven on this hardware over\n  years. Go one divider step at a time, verify visually on the real board, and\n  keep the previous value as the fallback. Never go below `/4`.\n- The backlight is PWM on PD15 through an S8050 transistor. Any duty from 0 to\n  100 % is safe."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "6. Ethernet and the PA7 conflict",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#6-ethernet-and-the-pa7-conflict",
+    "text": "`ETH_RMII_CRS_DV` can only be PA7 on this part, and Arduino D11 (`SPI1_MOSI`,\nthe display data line) is bonded to PA7 by the board's default strapping. They\ncannot both own the pin.\n\n- On a stock board the firmware time-slices: `cads_hal_spi_claim_bus()` stops the\n  MAC, waits for in-flight frames to drain, steals the pin, and restores\n  everything on release. **Never write to the display without bracketing it in\n  claim/release** - doing so corrupts whatever the PHY is receiving.\n- Never reconfigure the RMII pins (PA1, PA2, PC1, PA7, PC4, PC5, PG2, PG11,\n  PG13, PB13) outside the Ethernet driver.\n- The clean fix is the SB121/SB122 swap described in `docs/HARDWARE.md`. That is\n  a soldering operation on the Nucleo and is the user's decision, not an\n  automated one."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "7. Test and debugging conduct",
+    "url": "https://scimbe.github.io/cads-zero/SAFETY/#7-test-and-debugging-conduct",
+    "text": "- Every interaction with the probe or the serial port runs under a timeout.\n  `st-util`, `st-flash`, `gdb` and serial reads can all hang; a test that hangs\n  is worse than one that fails.\n- Always `pkill st-util` after a debug session. A stale GDB server holds the\n  probe and makes the next flash attempt fail in a confusing way.\n- `Default_Handler` and `cads_hal_panic()` execute `bkpt #0`. With a debugger\n  attached this halts usefully. **Without** a debugger attached a `bkpt` escalates\n  to a HardFault, so a panic on an untethered board presents as a lock-up with\n  the red LED on - which is the intended, safe failure mode."
+  },
+  {
+    "id": "cads-zero-docs-0",
+    "sourceId": "cads-zero-docs",
+    "section": "The ITSboard, and how it compares to a Flipper Zero",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#the-itsboard-and-how-it-compares-to-a-flipper-zero",
+    "text": "Everything here was verified against the physical board over ST-Link, or read\nout of the schematics in the vendor documentation. Where something is assumed\nrather than verified it says so.\n\n---"
+  },
+  {
+    "id": "cads-zero-docs-1",
+    "sourceId": "cads-zero-docs",
+    "section": "1. What the board is",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#1-what-the-board-is",
+    "text": "Three stacked pieces:\n\n1. **NUCLEO-F429ZI Rev.B** — STM32F429ZIT6, on-board ST-Link/V2-1\n2. **ITS adapter board** — brings 16 outputs, 8 inputs and 6 interrupt lines out\n3. **Waveshare 4inch TFT Touch Shield** — ILI9486 480×320 with XPT2046 touch\n\nProbe identity, read with `st-info --probe`:\n\n```\nversion:    V2J45S30\nserial:     066FFF565282494867161033\nflash:      2097152 (pagesize: 16384)\nsram:       262144\nchipid:     0x419          -> STM32F42x/F43x\n```"
+  },
+  {
+    "id": "cads-zero-docs-2",
+    "sourceId": "cads-zero-docs",
+    "section": "2. MCU",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#2-mcu",
+    "text": "| | |\n|---|---|\n| Core | Cortex-M4F, FPv4-SP-D16, hard float |\n| Clock | 180 MHz from an 8 MHz HSE bypass (the ST-Link's MCO) |\n| PLL | M=8, N=360, P=2, Q=7, over-drive on, 5 flash wait states |\n| Buses | AHB 180 MHz, APB1 45 MHz, APB2 90 MHz |\n| Flash | 2 MB in **two banks** of 1 MB — read-while-write across banks |\n| SRAM | 192 KB contiguous at `0x20000000` (SRAM1 112K + SRAM2 16K + SRAM3 64K) |\n| CCM | 64 KB at `0x10000000` — **no DMA access** |\n| Notable | LTDC, **DMA2D (Chrom-ART)**, ETH MAC, USB OTG FS |\n\nDMA2D is worth calling out: it does CLUT expansion (L4/L8 → RGB565) and\nrectangle fills in hardware. That is exactly the operation the indexed canvas\nneeds on every flush, and nothing comparable exists on a Flipper's STM32WB55."
+  },
+  {
+    "id": "cads-zero-docs-3",
+    "sourceId": "cads-zero-docs",
+    "section": "3. Display",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#3-display",
+    "text": "Waveshare 4inch TFT Touch Shield, ILI9486, 480×320, RGB565.\n\n**The bus is not plain SPI.** MOSI feeds a 74HC4040 counter and two cascaded\n74HC4094 shift registers, which present a 16-bit parallel word to the panel:\n\n```\nMCU SPI1 ──MOSI──> 74HC4094 ×2 ──D[15:0]──> ILI9486\n             │        ▲\n             └─SCLK──>74HC4040 ──CLK/16──> latch + panel WR\n```\n\nTwo consequences drive the whole graphics design:\n\n- **Write-only.** No register readback, no ID check, no read-modify-write on\n  video memory. The RAM framebuffer is the only truth.\n- **16 SPI clocks per pixel.** Pixel rate is `SPI_CLK / 16`.\n\nMeasured on the real board at `/16` (5.625 MHz SPI):\n\n| | |\n|---|---|\n| Full screen (153 600 px) | **448 ms** |\n| Throughput | **342 kpixel/s** (97 % of the 351 kpx/s theoretical) |\n| 40×40 dirty rect | 4.7 ms |\n\nThis is why dirty-rectangle tracking is a requirement rather than an\noptimisation, and why raising the divider is the first item in M1.\n\nProtocol quirk, reproduced from the vendor code that has driven this shield for\nyears: a **command is one byte with DC low**, a **parameter or pixel is two\nbytes with DC high**. The asymmetry belongs to the glue logic, not the ILI9486."
+  },
+  {
+    "id": "cads-zero-docs-4",
+    "sourceId": "cads-zero-docs",
+    "section": "Pin map",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#pin-map",
+    "text": "| Signal | Arduino | STM32 | Notes |\n|---|---|---|---|\n| SCLK | D13 | PA5 | |\n| MISO | D12 | PA6 | touch only |\n| MOSI | D11 | **PA7** | **contended, see §6** |\n| LCD_CS | D10 | PD14 | |\n| LCD_BL | D9 | PD15 | TIM4_CH4 PWM, AF2 |\n| LCD_RST | D8 | PF12 | |\n| LCD_DC | D7 | PF13 | |\n| TP_BUSY | D6 | PB10 | adapter remaps this; the shield manual says PB4 |\n| SD_CS | D5 | PE11? | **unverified, never driven** |\n| TP_CS | D4 | PF14 | |\n| TP_IRQ | D3 | PE13 | |\n\nThe shield carries a microSD slot on the same SPI bus. Whether the ITS adapter\nroutes `SD_CS` through is unverified, and the user has confirmed no card is in\nuse, so the firmware never drives that pin. Storage lives in internal flash."
+  },
+  {
+    "id": "cads-zero-docs-5",
+    "sourceId": "cads-zero-docs",
+    "section": "4. ITS adapter I/O",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#4-its-adapter-io",
+    "text": "| Name | Port | Direction |\n|---|---|---|\n| OUT0..7 | PD0..PD7 | output (LED bank) |\n| OUT8..15 | PE0..PE7 | output (LED bank) |\n| IN0..7 | PF0..PF7 | input, pulled up |\n| INT0..5 | PG0..PG5 | input, pulled up, EXTI capable |"
+  },
+  {
+    "id": "cads-zero-docs-6",
+    "sourceId": "cads-zero-docs",
+    "section": "The buttons",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#the-buttons",
+    "text": "**S0..S7 are PF0..PF7 (IN0..IN7), active low.** Settled by the manufacturer's\nown hardware test, `ITS-BRD/its_brd_tst`, `Programs/GPIOTest/Src/main.c`:\n\n```c\nsprintf(txt, \"Bitte die Taste %d druecken\", i);\nwhile ((GPIOF->IDR & (1 << i)) != 0) { }   /* waits for the line to go LOW */\n```\n\nA press pulls the line to ground, so internal pull-ups are the correct\nconfiguration.\n\n**INT0..INT5 (PG0..PG5) are not buttons.** The same test exercises them by\nasking the operator to *jumper OUT0 to INTx with a wire* - they are\ngeneral-purpose inputs brought out for external signals, EXTI capable. Any\ndesign that treats them as a button cluster is wrong.\n\n**The OUT LEDs are active high.** GPIOTest walks them with\n`GPIOD->BSRR = 1 << i` to light each in turn."
+  },
+  {
+    "id": "cads-zero-docs-7",
+    "sourceId": "cads-zero-docs",
+    "section": "The buttons",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#the-buttons",
+    "text": "!!! note \"A correction worth recording\"\n    An earlier reading of a camera frame showed eight LEDs lit while the output\n    banks were held at `0x0000`, and this was written up as \"the OUT LEDs are\n    active low\". That was wrong. The lit LEDs were almost certainly the eight\n    **input** state indicators, showing IN0..IN7 idle high with no button\n    pressed. Inferring electrical polarity from a photograph of a board whose\n    silkscreen was not legible was a guess dressed up as a measurement; the\n    manufacturer's test code settles it in one line.\n\n    Confirmed after the fact against the adapter's own schematic (see below):\n    that guess was right. PF0..PF7 feed an SN74LVC245 buffer whose B side\n    drives both connector IN0..7 and a bank of eight **red** LEDs - an input\n    state indicator, not an output."
+  },
+  {
+    "id": "cads-zero-docs-8",
+    "sourceId": "cads-zero-docs",
+    "section": "Schematic-level confirmation and what it adds",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#schematic-level-confirmation-and-what-it-adds",
+    "text": "The adapter's actual schematic (`ITSBRD.pdf` by Tobias Jähnichen, HAW Hamburg\nLabor für Technische Informatik, rev. 02 2020-12-16, archived at\n[`docs/reference/datasheets/`](reference/datasheets/README.md)) confirms every pin\nassignment above at the circuit level and adds detail the manufacturer's test\ncode did not need to mention:\n\n- **Inputs and outputs go through SN74LVC245 buffer ICs**, not straight to the\n  MCU pins. IN0..7 (U1) and OUT0..7/OUT8..15 (U2/U3) are each buffered, with\n  10 kΩ pull-ups to 3V3 on the input side. The MCU sees a clean logic load\n  either way; plain push-pull output / pulled-up input, exactly what this\n  firmware already does, is the correct interface.\n- **Three LED banks, one per direction:** red (D0..D7) on the input buffer's\n  A side, blue (D8..D15) on OUT0..7, green (D16..D23) on OUT8..15. 24 discrete\n  LEDs, not the 16 the OUT-only view suggested.\n- **INT0..5 (PG0..5) are unbuffered**, straight from the MCU to connector\n  `CN3`, labelled `AUX0..5` on the silkscreen - \"AUX\", not \"INT\". Consistent\n  with the manufacturer's test procedure treating them as external-signal\n  inputs rather than a button cluster."
+  },
+  {
+    "id": "cads-zero-docs-9",
+    "sourceId": "cads-zero-docs",
+    "section": "Capability this board has that the firmware does not yet use",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#capability-this-board-has-that-the-firmware-does-not-yet-use",
+    "text": "All confirmed present and wired on the schematic, none of it touched by any\ncode in this repository yet:\n\n| Bus / feature | Pins | Chip | Header |\n|---|---|---|---|\n| I2C1 | PB8 (SCL) / PB9 (SDA) | PCA9306 level shifter | `CN5` (3V3) and `CN6` (5V) |\n| RS232 | PC10 / PC11 → USART6 | MAX3232ECWE | D-sub-style serial header |\n| SPI3 / I2S3 | PC10 SCK, PC12 MOSI, PC11 MISO, PA15 NSS | — (direct) | `CN7` |\n| CAN1 | PD0 (RX) / PD1 (TX) | SN65HVD231D transceiver | `CN2`-adjacent CAN header |\n| ADC | PF8/PF9/PF10, PB1, PC0/PC2/PC3 | STM32 internal ADC3/12/123 | `CN4`, 7 channels |\n| DAC | PA4 | STM32 internal DAC1 | `CN4` |\n| Timer breakout | PE8/PE10/PE14, PB10/PB11, PB0, PC6/PC7/PC8/PC9 | TIM1/2/3/8 | `CN8`, 10 channels |\n\nI2C1 and the timer breakout are the two most directly useful for the GPIO\nSwiss-army-knife plan in `docs/ROADMAP.md`: an I2C bus scanner is close to\nfree given the level-shifted header already exists, and the timer breakout\ngives input-capture-capable pins for the frequency/duty-cycle tool without\nhaving to repurpose an adapter pin that already has another job."
+  },
+  {
+    "id": "cads-zero-docs-10",
+    "sourceId": "cads-zero-docs",
+    "section": "What this board does *not* have",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#what-this-board-does-not-have",
+    "text": "**No SD/MMC card slot. No SPI flash.** Both exist on a *different, older* lab\nboard (STM32F417ZG-based, referred to in its own docs as the \"TI-C-Board\"),\nwhose schematic is archived alongside this one for lineage but describes\ndifferent hardware with **opposite** GPIO polarity (its Port E is input, Port\nG is output - the reverse of PD/PE-output, PF/PG-input here). Storage on this\nfirmware is internal flash via littlefs (see M4 in `docs/ROADMAP.md`) because\nthat is what this board actually has, not because SD support was deferred."
+  },
+  {
+    "id": "cads-zero-docs-11",
+    "sourceId": "cads-zero-docs",
+    "section": "5. Ethernet",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#5-ethernet",
+    "text": "LAN8742A over RMII, PHY address 0.\n\n`PA1` REF_CLK · `PA2` MDIO · `PC1` MDC · `PA7` CRS_DV · `PC4` RXD0 ·\n`PC5` RXD1 · `PG2` RXER · `PG11` TX_EN · `PG13` TXD0 · `PB13` TXD1"
+  },
+  {
+    "id": "cads-zero-docs-12",
+    "sourceId": "cads-zero-docs",
+    "section": "6. The PA7 conflict",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#6-the-pa7-conflict",
+    "text": "**`SPI1_MOSI` and `ETH_RMII_CRS_DV` are the same pin.**\n\n`ETH_RMII_CRS_DV` has exactly one possible location on the STM32F429: PA7. The\nWaveshare shield's data line arrives on Arduino D11, which the Nucleo bonds to\nPA7 by default. Only one alternate function can own a pin, so whichever driver\ninitialises last wins.\n\nThis is not theoretical. In the ITS lab's existing `Stack` project,\n`GUI_init()` claims PA7 for SPI1 and `HAL_ETH_MspInit()` subsequently claims it\nfor the MAC — after which the display is mute. Their `SPI4W_Write_Byte()`\nmitigates it by stopping the MAC, flipping the AF, sending **one byte**, and\nrestarting the MAC. Correct, but it makes DMA impossible and tears the receiver\ndown 150 000 times per full-screen redraw."
+  },
+  {
+    "id": "cads-zero-docs-13",
+    "sourceId": "cads-zero-docs",
+    "section": "What this firmware does",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#what-this-firmware-does",
+    "text": "`cads_hal_spi_claim_bus()` / `cads_hal_spi_release_bus()` do the same dance\n**per blit** instead of per byte: one stop, one DMA transfer of an entire\nrectangle, one restart. Same correctness, three orders of magnitude fewer MAC\nrestarts, and DMA becomes usable."
+  },
+  {
+    "id": "cads-zero-docs-14",
+    "sourceId": "cads-zero-docs",
+    "section": "The real fix",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#the-real-fix",
+    "text": "UM1974 §6.9:\n\n> **SB121, SB122 (D11)** — ON, OFF: D11 (Pin 14 of CN7) is connected to STM32\n> **PA7** (SPI_A_MOSI/TIM_E_PWM1). OFF, ON: D11 (Pin 14 of CN7) is connected to\n> STM32 **PB5** (SPI_A_MOSI/TIM_D_PWM2).\n\nSwapping the two bridges moves MOSI to PB5, leaves PA7 to the PHY, and lets both\nsubsystems run concurrently at full speed. Build with\n`-DCADS_SPI_MOSI_ON_PB5=1` afterwards and all the arbitration compiles away.\n\nIt is a soldering operation on the Nucleo, reversible, and **the user's\ndecision**. Until then the firmware defaults to the time-slicing path."
+  },
+  {
+    "id": "cads-zero-docs-15",
+    "sourceId": "cads-zero-docs",
+    "section": "7. Compared to a Flipper Zero",
+    "url": "https://scimbe.github.io/cads-zero/HARDWARE/#7-compared-to-a-flipper-zero",
+    "text": "| | Flipper Zero (STM32WB55RG) | ITSboard (STM32F429ZI) |\n|---|---|---|\n| Core | Cortex-M4 @ 64 MHz | Cortex-M4F @ **180 MHz** |\n| Flash | 1 MB | **2 MB**, dual bank |\n| SRAM | 256 KB | 192 KB + 64 KB CCM |\n| Display | ST7565R 128×64 mono | **ILI9486 480×320 colour** |\n| Input | 5-way + back buttons | **resistive touch** + 14 adapter lines |\n| Graphics accel | none | **DMA2D** |\n| Network | BLE | **100 Mbit Ethernet** |\n| Storage | microSD | internal flash (littlefs) |\n| Sub-GHz | CC1101 | — |\n| NFC | ST25R3916 | — |\n| 125 kHz RFID | yes | — |\n| Infrared | yes | — |\n| iButton / 1-Wire | yes | — |\n| USB | device, HID/CDC | OTG FS present, unused |\n\n**What ports:** the OS, the GUI framework, the app model, storage, the CLI, the\ndesktop and mascot, games and utilities.\n\n**What cannot port:** every radio feature. Sub-GHz, NFC, RFID, IR and iButton\nare silicon this board does not have, and no amount of software substitutes for\na missing transceiver.\n\n**What replaces them:** the Ethernet stack. A CLI over TCP, a web status page,\nscreen streaming to a host, and network tooling are things a Flipper cannot do\nat all, and they use the hardware advantage this board actually has."
+  }
+]

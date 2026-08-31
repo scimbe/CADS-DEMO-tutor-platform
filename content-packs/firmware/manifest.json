@@ -1,0 +1,22 @@
+{
+  "_comment": "Onboarding-focused set: how a student gets from zero to a real build/flash/debug loop on real hardware or the sim. Sources are this project's own MIT-licensed docs (cads-zero), not the copyrighted RM0090/PM0214 manuals - see README's licensing note. cads-zero's source repo is currently private, so this reads from the local checkout (localRoot) rather than fetching over HTTP; docBaseUrl (the public Pages site) is still used for citation URLs a student can actually click. Extending this to the full doc tree is mechanical.",
+  "sourceId": "cads-zero-docs",
+  "localRoot": "/Users/dev/Documents/git/cads-zero/docs/",
+  "docBaseUrl": "https://scimbe.github.io/cads-zero/",
+  "chapters": [
+    { "file": "how-to/vscode-setup.md", "docPath": "how-to/vscode-setup/" },
+    { "file": "how-to/build.md", "docPath": "how-to/build/" },
+    { "file": "how-to/flash.md", "docPath": "how-to/flash/" },
+    { "file": "how-to/debug.md", "docPath": "how-to/debug/" },
+    { "file": "how-to/board-test.md", "docPath": "how-to/board-test/" },
+    { "file": "tutorials/first-build.md", "docPath": "tutorials/first-build/" },
+    { "file": "tutorials/first-gate.md", "docPath": "tutorials/first-gate/" },
+    { "file": "reference/hal.md", "docPath": "reference/hal/" },
+    { "file": "reference/memory-map.md", "docPath": "reference/memory-map/" },
+    { "file": "reference/module-layout.md", "docPath": "reference/module-layout/" },
+    { "file": "explanation/toolchain.md", "docPath": "explanation/toolchain/" },
+    { "file": "explanation/clean-room.md", "docPath": "explanation/clean-room/" },
+    { "file": "SAFETY.md", "docPath": "SAFETY/" },
+    { "file": "HARDWARE.md", "docPath": "HARDWARE/" }
+  ]
+}

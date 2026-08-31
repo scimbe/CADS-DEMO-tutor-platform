@@ -13,7 +13,12 @@ import type { Chunk } from "../types.js";
 
 interface Manifest {
   sourceId: string;
-  baseRawUrl: string;
+  /** Set for a source whose repo isn't publicly fetchable (e.g. private
+   * during development) - reads chapters from this local directory instead
+   * of baseRawUrl. Citation URLs still come from docBaseUrl, which can be
+   * public (a Pages site) even when the source repo itself is private. */
+  localRoot?: string;
+  baseRawUrl?: string;
   docBaseUrl: string;
   chapters: { file: string; docPath: string }[];
 }
@@ -31,13 +36,20 @@ async function main() {
   const allChunks: Chunk[] = [];
 
   for (const chapter of manifest.chapters) {
-    const url = manifest.baseRawUrl + chapter.file;
-    console.log(`Fetching ${url}`);
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+    let markdown: string;
+    if (manifest.localRoot) {
+      const filePath = path.join(manifest.localRoot, chapter.file);
+      console.log(`Reading ${filePath}`);
+      markdown = readFileSync(filePath, "utf-8");
+    } else {
+      const url = manifest.baseRawUrl + chapter.file;
+      console.log(`Fetching ${url}`);
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+      }
+      markdown = await res.text();
     }
-    const markdown = await res.text();
     const docUrl = manifest.docBaseUrl + chapter.docPath;
     const chunks = chunkMarkdown(manifest.sourceId, docUrl, markdown);
     console.log(`  -> ${chunks.length} chunks`);

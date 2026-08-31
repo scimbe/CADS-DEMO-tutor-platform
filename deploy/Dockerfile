@@ -18,7 +18,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 RUN git clone --branch b4938 --depth 1 https://github.com/ggml-org/whisper.cpp.git
 WORKDIR /build/whisper.cpp
-RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+# GGML_NATIVE=OFF: ggml's default -march=native CPU auto-detection is unreliable inside a
+# container - hit live building this on arm64 (Docker Desktop on Apple Silicon): the detected
+# flags enabled an ARM NEON fp16 vector op in one translation unit without consistently
+# enabling it project-wide, so GCC's always_inline check failed ("target specific option
+# mismatch" on vaddq_f16) partway through the build, not at configure time. A portable
+# baseline (no native auto-detection) trades a little runtime perf for actually building
+# reliably across whatever host architecture this image is built/run on.
+RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF \
  && cmake --build build -j "$(nproc)" --config Release --target whisper-cli \
  && bash models/download-ggml-model.sh base
 
@@ -26,7 +33,11 @@ RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
 FROM node:22-bookworm-slim AS tsbuild
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: package.json's "prepare": "tsc" would otherwise run right here, before
+# tsconfig.json/src are even copied into the image - tsc with no config and no source fails
+# npm ci itself (real build failure, caught live deploying this - not a hypothetical). The
+# explicit "npx tsc" below, run after the real source is present, is the actual build step.
+RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
 RUN npx tsc

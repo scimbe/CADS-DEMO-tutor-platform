@@ -8,6 +8,12 @@
  *
  * Run: node --env-file=.env dist/cli/whisper-service.js
  * Then: curl -X POST --data-binary @clip.wav "http://localhost:8756/transcribe?lang=de"
+ *
+ * Set WHISPER_SERVICE_API_KEY to require "Authorization: Bearer <key>" on /transcribe -
+ * this service shells out to a CPU-bound whisper-cli process per request, so an
+ * unauthenticated instance reachable over a public tunnel is a free CPU sink for anyone
+ * who finds the URL. Leave unset for local-only use (health checks and local dev never
+ * need a key).
  */
 
 import { createServer } from "node:http";
@@ -18,6 +24,7 @@ import { transcribe, TranscribeError } from "../stt.js";
 
 const PORT = Number(process.env.WHISPER_SERVICE_PORT ?? 8756);
 const MAX_BODY_BYTES = 25 * 1024 * 1024; // 25MB - generous for a few minutes of compressed speech
+const API_KEY = process.env.WHISPER_SERVICE_API_KEY;
 
 function readBody(req: import("node:http").IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -48,6 +55,15 @@ const server = createServer(async (req, res) => {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "POST /transcribe with raw audio bytes, or GET /health" }));
     return;
+  }
+
+  if (API_KEY) {
+    const auth = req.headers["authorization"];
+    if (auth !== `Bearer ${API_KEY}`) {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "missing or invalid Authorization: Bearer <key>" }));
+      return;
+    }
   }
 
   const url = new URL(req.url, `http://localhost:${PORT}`);

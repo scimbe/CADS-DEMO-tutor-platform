@@ -6,3 +6,4 @@ export * from "./llm.js";
 export * from "./memory.js";
 export * from "./session.js";
 export * from "./stt.js";
+export * from "./stt-race.js";

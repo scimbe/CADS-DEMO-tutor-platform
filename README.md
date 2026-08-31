@@ -137,3 +137,15 @@ is in progress there. `recallSimilarInteractions` is implemented but deliberatel
 `session.ts` above). See the
 [full platform plan](https://claude.ai/code/artifact/67493cd9-2c7e-4922-85e4-256d5a7f7986) for what
 comes next and what's still an open decision.
+
+**Known, accepted `npm audit` finding**: 8 high + 1 critical, all transitive through
+`student-memory` → `@lancedb/lancedb` → `@xenova/transformers` → `sharp` (libvips CVEs, no upstream
+fix available as of this writing). `sharp` is `@xenova/transformers`' image-preprocessing path — this
+package only ever embeds *text* (interaction records), never images, so the vulnerable code path is
+unreachable from anything this repo actually calls, not a hypothetical "probably fine." Re-check with
+`npm audit` next time a dependency bump touches this chain rather than assuming it's still true.
+
+Consumers should pin to a tagged release (starting `v0.2.0`), not track `main` - a git-dependency
+install against `main` mid-development was observed by a consumer to pick up two different
+`content-packs/rust` `relevanceThreshold` values between two installs a short time apart, a real
+reproducibility problem this tag exists to fix.

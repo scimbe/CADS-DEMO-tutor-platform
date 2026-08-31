@@ -282,6 +282,111 @@
   {
     "id": "rust-book-0",
     "sourceId": "rust-book",
+    "section": "The Slice Type",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#the-slice-type",
+    "text": "_Slices_ let you reference a contiguous sequence of elements in a\n[collection](ch08-00-common-collections.md)<!-- ignore -->. A slice is a kind\nof reference, so it does not have ownership.\n\nHere’s a small programming problem: Write a function that takes a string of\nwords separated by spaces and returns the first word it finds in that string.\nIf the function doesn’t find a space in the string, the whole string must be\none word, so the entire string should be returned.\n\n> Note: For the purposes of introducing slices, we are assuming ASCII only in\n> this section; a more thorough discussion of UTF-8 handling is in the\n> [“Storing UTF-8 Encoded Text with Strings”][strings]<!-- ignore --> section\n> of Chapter 8.\n\nLet’s work through how we’d write the signature of this function without using\nslices, to understand the problem that slices will solve:\n\n```rust,ignore\nfn first_word(s: &String) -> ?\n```"
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "The Slice Type",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#the-slice-type",
+    "text": "The `first_word` function has a parameter of type `&String`. We don’t need\nownership, so this is fine. (In idiomatic Rust, functions do not take ownership\nof their arguments unless they need to, and the reasons for that will become\nclear as we keep going.) But what should we return? We don’t really have a way\nto talk about *part* of a string. However, we could return the index of the end\nof the word, indicated by a space. Let’s try that, as shown in Listing 4-7.\n\n<Listing number=\"4-7\" file-name=\"src/main.rs\" caption=\"The `first_word` function that returns a byte index value into the `String` parameter\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-07/src/main.rs:here}}\n```\n\n</Listing>\n\nBecause we need to go through the `String` element by element and check whether\na value is a space, we’ll convert our `String` to an array of bytes using the\n`as_bytes` method.\n\n```rust,ignore\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-07/src/main.rs:as_bytes}}\n```\n\nNext, we create an iterator over the array of bytes using the `iter` method:"
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "The Slice Type",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#the-slice-type",
+    "text": "```rust,ignore\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-07/src/main.rs:iter}}\n```\n\nWe’ll discuss iterators in more detail in [Chapter 13][ch13]<!-- ignore -->.\nFor now, know that `iter` is a method that returns each element in a collection\nand that `enumerate` wraps the result of `iter` and returns each element as\npart of a tuple instead. The first element of the tuple returned from\n`enumerate` is the index, and the second element is a reference to the element.\nThis is a bit more convenient than calculating the index ourselves.\n\nBecause the `enumerate` method returns a tuple, we can use patterns to\ndestructure that tuple. We’ll be discussing patterns more in [Chapter\n6][ch6]<!-- ignore -->. In the `for` loop, we specify a pattern that has `i`\nfor the index in the tuple and `&item` for the single byte in the tuple.\nBecause we get a reference to the element from `.iter().enumerate()`, we use\n`&` in the pattern.\n\nInside the `for` loop, we search for the byte that represents the space by\nusing the byte literal syntax. If we find a space, we return the position.\nOtherwise, we return the length of the string by using `s.len()`."
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "The Slice Type",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#the-slice-type",
+    "text": "```rust,ignore\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-07/src/main.rs:inside_for}}\n```\n\nWe now have a way to find out the index of the end of the first word in the\nstring, but there’s a problem. We’re returning a `usize` on its own, but it’s\nonly a meaningful number in the context of the `&String`. In other words,\nbecause it’s a separate value from the `String`, there’s no guarantee that it\nwill still be valid in the future. Consider the program in Listing 4-8 that\nuses the `first_word` function from Listing 4-7.\n\n<Listing number=\"4-8\" file-name=\"src/main.rs\" caption=\"Storing the result from calling the `first_word` function and then changing the `String` contents\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-08/src/main.rs:here}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "The Slice Type",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#the-slice-type",
+    "text": "This program compiles without any errors and would also do so if we used `word`\nafter calling `s.clear()`. Because `word` isn’t connected to the state of `s`\nat all, `word` still contains the value `5`. We could use that value `5` with\nthe variable `s` to try to extract the first word out, but this would be a bug\nbecause the contents of `s` have changed since we saved `5` in `word`.\n\nHaving to worry about the index in `word` getting out of sync with the data in\n`s` is tedious and error-prone! Managing these indices is even more brittle if\nwe write a `second_word` function. Its signature would have to look like this:\n\n```rust,ignore\nfn second_word(s: &String) -> (usize, usize) {\n```\n\nNow we’re tracking a starting _and_ an ending index, and we have even more\nvalues that were calculated from data in a particular state but aren’t tied to\nthat state at all. We have three unrelated variables floating around that need\nto be kept in sync.\n\nLuckily, Rust has a solution to this problem: string slices."
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "String Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices",
+    "text": "A _string slice_ is a reference to a contiguous sequence of the elements of a\n`String`, and it looks like this:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-17-slice/src/main.rs:here}}\n```\n\nRather than a reference to the entire `String`, `hello` is a reference to a\nportion of the `String`, specified in the extra `[0..5]` bit. We create slices\nusing a range within square brackets by specifying\n`[starting_index..ending_index]`, where _`starting_index`_ is the first\nposition in the slice and _`ending_index`_ is one more than the last position\nin the slice. Internally, the slice data structure stores the starting position\nand the length of the slice, which corresponds to _`ending_index`_ minus\n_`starting_index`_. So, in the case of `let world = &s[6..11];`, `world` would\nbe a slice that contains a pointer to the byte at index 6 of `s` with a length\nvalue of `5`.\n\nFigure 4-7 shows this in a diagram."
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "String Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices",
+    "text": "<img alt=\"Three tables: a table representing the stack data of s, which points\nto the byte at index 0 in a table of the string data &quot;hello world&quot; on\nthe heap. The third table represents the stack data of the slice world, which\nhas a length value of 5 and points to byte 6 of the heap data table.\"\nsrc=\"img/trpl04-07.svg\" class=\"center\" style=\"width: 50%;\" />\n\n<span class=\"caption\">Figure 4-7: A string slice referring to part of a\n`String`</span>\n\nWith Rust’s `..` range syntax, if you want to start at index 0, you can drop\nthe value before the two periods. In other words, these are equal:\n\n```rust\nlet s = String::from(\"hello\");\n\nlet slice = &s[0..2];\nlet slice = &s[..2];\n```\n\nBy the same token, if your slice includes the last byte of the `String`, you\ncan drop the trailing number. That means these are equal:\n\n```rust\nlet s = String::from(\"hello\");\n\nlet len = s.len();\n\nlet slice = &s[3..len];\nlet slice = &s[3..];\n```\n\nYou can also drop both values to take a slice of the entire string. So, these\nare equal:\n\n```rust\nlet s = String::from(\"hello\");\n\nlet len = s.len();\n\nlet slice = &s[0..len];\nlet slice = &s[..];\n```"
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "String Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices",
+    "text": "> Note: String slice range indices must occur at valid UTF-8 character\n> boundaries. If you attempt to create a string slice in the middle of a\n> multibyte character, your program will exit with an error.\n\nWith all this information in mind, let’s rewrite `first_word` to return a\nslice. The type that signifies “string slice” is written as `&str`:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-18-first-word-slice/src/main.rs:here}}\n```\n\n</Listing>\n\nWe get the index for the end of the word the same way we did in Listing 4-7, by\nlooking for the first occurrence of a space. When we find a space, we return a\nstring slice using the start of the string and the index of the space as the\nstarting and ending indices.\n\nNow when we call `first_word`, we get back a single value that is tied to the\nunderlying data. The value is made up of a reference to the starting point of\nthe slice and the number of elements in the slice.\n\nReturning a slice would also work for a `second_word` function:\n\n```rust,ignore\nfn second_word(s: &String) -> &str {\n```"
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "String Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices",
+    "text": "We now have a straightforward API that’s much harder to mess up because the\ncompiler will ensure that the references into the `String` remain valid.\nRemember the bug in the program in Listing 4-8, when we got the index to the\nend of the first word but then cleared the string so our index was invalid?\nThat code was logically incorrect but didn’t show any immediate errors. The\nproblems would show up later if we kept trying to use the first word index with\nan emptied string. Slices make this bug impossible and let us know much sooner\nthat we have a problem with our code. Using the slice version of `first_word`\nwill throw a compile-time error:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-19-slice-error/src/main.rs:here}}\n```\n\n</Listing>\n\nHere’s the compiler error:\n\n```console\n{{#include ../listings/ch04-understanding-ownership/no-listing-19-slice-error/output.txt}}\n```"
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "String Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices",
+    "text": "Recall from the borrowing rules that if we have an immutable reference to\nsomething, we cannot also take a mutable reference. Because `clear` needs to\ntruncate the `String`, it needs to get a mutable reference. The `println!`\nafter the call to `clear` uses the reference in `word`, so the immutable\nreference must still be active at that point. Rust disallows the mutable\nreference in `clear` and the immutable reference in `word` from existing at the\nsame time, and compilation fails. Not only has Rust made our API easier to use,\nbut it has also eliminated an entire class of errors at compile time!\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"string-literals-are-slices\"></a>"
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "String Literals as Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-literals-as-slices",
+    "text": "Recall that we talked about string literals being stored inside the binary. Now\nthat we know about slices, we can properly understand string literals:\n\n```rust\nlet s = \"Hello, world!\";\n```\n\nThe type of `s` here is `&str`: It’s a slice pointing to that specific point of\nthe binary. This is also why string literals are immutable; `&str` is an\nimmutable reference."
+  },
+  {
+    "id": "rust-book-11",
+    "sourceId": "rust-book",
+    "section": "String Slices as Parameters",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices-as-parameters",
+    "text": "Knowing that you can take slices of literals and `String` values leads us to\none more improvement on `first_word`, and that’s its signature:\n\n```rust,ignore\nfn first_word(s: &String) -> &str {\n```\n\nA more experienced Rustacean would write the signature shown in Listing 4-9\ninstead because it allows us to use the same function on both `&String` values\nand `&str` values.\n\n<Listing number=\"4-9\" caption=\"Improving the `first_word` function by using a string slice for the type of the `s` parameter\">\n\n```rust,ignore\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-09/src/main.rs:here}}\n```\n\n</Listing>\n\nIf we have a string slice, we can pass that directly. If we have a `String`, we\ncan pass a slice of the `String` or a reference to the `String`. This\nflexibility takes advantage of deref coercions, a feature we will cover in\nthe [“Using Deref Coercions in Functions and Methods”][deref-coercions]<!--\nignore --> section of Chapter 15.\n\nDefining a function to take a string slice instead of a reference to a `String`\nmakes our API more general and useful without losing any functionality:\n\n<Listing file-name=\"src/main.rs\">"
+  },
+  {
+    "id": "rust-book-12",
+    "sourceId": "rust-book",
+    "section": "String Slices as Parameters",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#string-slices-as-parameters",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-09/src/main.rs:usage}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-13",
+    "sourceId": "rust-book",
+    "section": "Other Slices",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#other-slices",
+    "text": "String slices, as you might imagine, are specific to strings. But there’s a\nmore general slice type too. Consider this array:\n\n```rust\nlet a = [1, 2, 3, 4, 5];\n```\n\nJust as we might want to refer to part of a string, we might want to refer to\npart of an array. We’d do so like this:\n\n```rust\nlet a = [1, 2, 3, 4, 5];\n\nlet slice = &a[1..3];\n\nassert_eq!(slice, &[2, 3]);\n```\n\nThis slice has the type `&[i32]`. It works the same way as string slices do, by\nstoring a reference to the first element and a length. You’ll use this kind of\nslice for all sorts of other collections. We’ll discuss these collections in\ndetail when we talk about vectors in Chapter 8."
+  },
+  {
+    "id": "rust-book-14",
+    "sourceId": "rust-book",
+    "section": "Summary",
+    "url": "https://doc.rust-lang.org/book/ch04-03-slices.html#summary",
+    "text": "The concepts of ownership, borrowing, and slices ensure memory safety in Rust\nprograms at compile time. The Rust language gives you control over your memory\nusage in the same way as other systems programming languages. But having the\nowner of data automatically clean up that data when the owner goes out of scope\nmeans you don’t have to write and debug extra code to get this control.\n\nOwnership affects how lots of other parts of Rust work, so we’ll talk about\nthese concepts further throughout the rest of the book. Let’s move on to\nChapter 5 and look at grouping pieces of data together in a `struct`.\n\n[ch13]: ch13-02-iterators.html\n[ch6]: ch06-02-match.html#patterns-that-bind-to-values\n[strings]: ch08-02-strings.html#storing-utf-8-encoded-text-with-strings\n[deref-coercions]: ch15-02-deref.html#using-deref-coercions-in-functions-and-methods"
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
     "section": "Defining and Instantiating Structs",
     "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-and-instantiating-structs",
     "text": "Structs are similar to tuples, discussed in [“The Tuple Type”][tuples]<!--\nignore --> section, in that both hold multiple related values. Like tuples, the\npieces of a struct can be different types. Unlike with tuples, in a struct\nyou’ll name each piece of data so it’s clear what the values mean. Adding these\nnames means that structs are more flexible than tuples: You don’t have to rely\non the order of the data to specify or access the values of an instance.\n\nTo define a struct, we enter the keyword `struct` and name the entire struct. A\nstruct’s name should describe the significance of the pieces of data being\ngrouped together. Then, inside curly brackets, we define the names and types of\nthe pieces of data, which we call _fields_. For example, Listing 5-1 shows a\nstruct that stores information about a user account.\n\n<Listing number=\"5-1\" file-name=\"src/main.rs\" caption=\"A `User` struct definition\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-01/src/main.rs:here}}\n```\n\n</Listing>"
@@ -397,5 +502,264 @@
     "section": "Defining Unit-Like Structs",
     "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
     "text": "<!-- manual-regeneration\nfor the error above\nafter running update-rustc.sh:\npbcopy < listings/ch05-using-structs-to-structure-related-data/no-listing-02-reference-in-struct/output.txt\npaste above\nadd `> ` before every line -->\n\n[tuples]: ch03-02-data-types.html#the-tuple-type\n[move]: ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move\n[copy]: ch04-01-what-is-ownership.html#stack-only-data-copy"
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "Defining an Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#defining-an-enum",
+    "text": "Where structs give you a way of grouping together related fields and data, like\na `Rectangle` with its `width` and `height`, enums give you a way of saying a\nvalue is one of a possible set of values. For example, we may want to say that\n`Rectangle` is one of a set of possible shapes that also includes `Circle` and\n`Triangle`. To do this, Rust allows us to encode these possibilities as an enum.\n\nLet’s look at a situation we might want to express in code and see why enums\nare useful and more appropriate than structs in this case. Say we need to work\nwith IP addresses. Currently, two major standards are used for IP addresses:\nversion four and version six. Because these are the only possibilities for an\nIP address that our program will come across, we can _enumerate_ all possible\nvariants, which is where enumeration gets its name."
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "Defining an Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#defining-an-enum",
+    "text": "Any IP address can be either a version four or a version six address, but not\nboth at the same time. That property of IP addresses makes the enum data\nstructure appropriate because an enum value can only be one of its variants.\nBoth version four and version six addresses are still fundamentally IP\naddresses, so they should be treated as the same type when the code is handling\nsituations that apply to any kind of IP address.\n\nWe can express this concept in code by defining an `IpAddrKind` enumeration and\nlisting the possible kinds an IP address can be, `V4` and `V6`. These are the\nvariants of the enum:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-01-defining-enums/src/main.rs:def}}\n```\n\n`IpAddrKind` is now a custom data type that we can use elsewhere in our code."
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "We can create instances of each of the two variants of `IpAddrKind` like this:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-01-defining-enums/src/main.rs:instance}}\n```\n\nNote that the variants of the enum are namespaced under its identifier, and we\nuse a double colon to separate the two. This is useful because now both values\n`IpAddrKind::V4` and `IpAddrKind::V6` are of the same type: `IpAddrKind`. We\ncan then, for instance, define a function that takes any `IpAddrKind`:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-01-defining-enums/src/main.rs:fn}}\n```\n\nAnd we can call this function with either variant:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-01-defining-enums/src/main.rs:fn_call}}\n```\n\nUsing enums has even more advantages. Thinking more about our IP address type,\nat the moment we don’t have a way to store the actual IP address _data_; we\nonly know what _kind_ it is. Given that you just learned about structs in\nChapter 5, you might be tempted to tackle this problem with structs as shown in\nListing 6-1."
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "<Listing number=\"6-1\" caption=\"Storing the data and `IpAddrKind` variant of an IP address using a `struct`\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-01/src/main.rs:here}}\n```\n\n</Listing>\n\nHere, we’ve defined a struct `IpAddr` that has two fields: a `kind` field that\nis of type `IpAddrKind` (the enum we defined previously) and an `address` field\nof type `String`. We have two instances of this struct. The first is `home`,\nand it has the value `IpAddrKind::V4` as its `kind` with associated address\ndata of `127.0.0.1`. The second instance is `loopback`. It has the other\nvariant of `IpAddrKind` as its `kind` value, `V6`, and has address `::1`\nassociated with it. We’ve used a struct to bundle the `kind` and `address`\nvalues together, so now the variant is associated with the value.\n\nHowever, representing the same concept using just an enum is more concise:\nRather than an enum inside a struct, we can put data directly into each enum\nvariant. This new definition of the `IpAddr` enum says that both `V4` and `V6`\nvariants will have associated `String` values:"
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-02-enum-with-data/src/main.rs:here}}\n```\n\nWe attach data to each variant of the enum directly, so there is no need for an\nextra struct. Here, it’s also easier to see another detail of how enums work:\nThe name of each enum variant that we define also becomes a function that\nconstructs an instance of the enum. That is, `IpAddr::V4()` is a function call\nthat takes a `String` argument and returns an instance of the `IpAddr` type. We\nautomatically get this constructor function defined as a result of defining the\nenum.\n\nThere’s another advantage to using an enum rather than a struct: Each variant\ncan have different types and amounts of associated data. Version four IP\naddresses will always have four numeric components that will have values\nbetween 0 and 255. If we wanted to store `V4` addresses as four `u8` values but\nstill express `V6` addresses as one `String` value, we wouldn’t be able to with\na struct. Enums handle this case with ease:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-03-variants-with-different-data/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "We’ve shown several different ways to define data structures to store version\nfour and version six IP addresses. However, as it turns out, wanting to store\nIP addresses and encode which kind they are is so common that [the standard\nlibrary has a definition we can use!][IpAddr]<!-- ignore --> Let’s look at how\nthe standard library defines `IpAddr`. It has the exact enum and variants that\nwe’ve defined and used, but it embeds the address data inside the variants in\nthe form of two different structs, which are defined differently for each\nvariant:\n\n```rust\nstruct Ipv4Addr {\n    // --snip--\n}\n\nstruct Ipv6Addr {\n    // --snip--\n}\n\nenum IpAddr {\n    V4(Ipv4Addr),\n    V6(Ipv6Addr),\n}\n```\n\nThis code illustrates that you can put any kind of data inside an enum variant:\nstrings, numeric types, or structs, for example. You can even include another\nenum! Also, standard library types are often not much more complicated than\nwhat you might come up with."
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "Note that even though the standard library contains a definition for `IpAddr`,\nwe can still create and use our own definition without conflict because we\nhaven’t brought the standard library’s definition into our scope. We’ll talk\nmore about bringing types into scope in Chapter 7.\n\nLet’s look at another example of an enum in Listing 6-2: This one has a wide\nvariety of types embedded in its variants.\n\n<Listing number=\"6-2\" caption=\"A `Message` enum whose variants each store different amounts and types of values\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-02/src/main.rs:here}}\n```\n\n</Listing>\n\nThis enum has four variants with different types:\n\n- `Quit`: Has no data associated with it at all\n- `Move`: Has named fields, like a struct does\n- `Write`: Includes a single `String`\n- `ChangeColor`: Includes three `i32` values\n\nDefining an enum with variants such as the ones in Listing 6-2 is similar to\ndefining different kinds of struct definitions, except the enum doesn’t use the\n`struct` keyword and all the variants are grouped together under the `Message`\ntype. The following structs could hold the same data that the preceding enum\nvariants hold:"
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-04-structs-similar-to-message-enum/src/main.rs:here}}\n```\n\nBut if we used the different structs, each of which has its own type, we\ncouldn’t as easily define a function to take any of these kinds of messages as\nwe could with the `Message` enum defined in Listing 6-2, which is a single type.\n\nThere is one more similarity between enums and structs: Just as we’re able to\ndefine methods on structs using `impl`, we’re also able to define methods on\nenums. Here’s a method named `call` that we could define on our `Message` enum:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-05-methods-on-enums/src/main.rs:here}}\n```\n\nThe body of the method would use `self` to get the value that we called the\nmethod on. In this example, we’ve created a variable `m` that has the value\n`Message::Write(String::from(\"hello\"))`, and that is what `self` will be in the\nbody of the `call` method when `m.call()` runs.\n\nLet’s look at another enum in the standard library that is very common and\nuseful: `Option`.\n\n<!-- Old headings. Do not remove or links may break. -->"
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "Enum Values",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values",
+    "text": "<a id=\"the-option-enum-and-its-advantages-over-null-values\"></a>"
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "This section explores a case study of `Option`, which is another enum defined\nby the standard library. The `Option` type encodes the very common scenario in\nwhich a value could be something, or it could be nothing.\n\nFor example, if you request the first item in a non-empty list, you would get\na value. If you request the first item in an empty list, you would get nothing.\nExpressing this concept in terms of the type system means the compiler can\ncheck whether you’ve handled all the cases you should be handling; this\nfunctionality can prevent bugs that are extremely common in other programming\nlanguages.\n\nProgramming language design is often thought of in terms of which features you\ninclude, but the features you exclude are important too. Rust doesn’t have the\nnull feature that many other languages have. _Null_ is a value that means there\nis no value there. In languages with null, variables can always be in one of\ntwo states: null or not-null.\n\nIn his 2009 presentation “Null References: The Billion Dollar Mistake,” Tony\nHoare, the inventor of null, had this to say:"
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "> I call it my billion-dollar mistake. At that time, I was designing the first\n> comprehensive type system for references in an object-oriented language. My\n> goal was to ensure that all use of references should be absolutely safe, with\n> checking performed automatically by the compiler. But I couldn’t resist the\n> temptation to put in a null reference, simply because it was so easy to\n> implement. This has led to innumerable errors, vulnerabilities, and system\n> crashes, which have probably caused a billion dollars of pain and damage in\n> the last forty years.\n\nThe problem with null values is that if you try to use a null value as a\nnot-null value, you’ll get an error of some kind. Because this null or not-null\nproperty is pervasive, it’s extremely easy to make this kind of error.\n\nHowever, the concept that null is trying to express is still a useful one: A\nnull is a value that is currently invalid or absent for some reason."
+  },
+  {
+    "id": "rust-book-11",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "The problem isn’t really with the concept but with the particular\nimplementation. As such, Rust does not have nulls, but it does have an enum\nthat can encode the concept of a value being present or absent. This enum is\n`Option<T>`, and it is [defined by the standard library][option]<!-- ignore -->\nas follows:\n\n```rust\nenum Option<T> {\n    None,\n    Some(T),\n}\n```\n\nThe `Option<T>` enum is so useful that it’s even included in the prelude; you\ndon’t need to bring it into scope explicitly. Its variants are also included in\nthe prelude: You can use `Some` and `None` directly without the `Option::`\nprefix. The `Option<T>` enum is still just a regular enum, and `Some(T)` and\n`None` are still variants of type `Option<T>`."
+  },
+  {
+    "id": "rust-book-12",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "The `<T>` syntax is a feature of Rust we haven’t talked about yet. It’s a\ngeneric type parameter, and we’ll cover generics in more detail in Chapter 10.\nFor now, all you need to know is that `<T>` means that the `Some` variant of\nthe `Option` enum can hold one piece of data of any type, and that each\nconcrete type that gets used in place of `T` makes the overall `Option<T>` type\na different type. Here are some examples of using `Option` values to hold\nnumber types and char types:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-06-option-examples/src/main.rs:here}}\n```\n\nThe type of `some_number` is `Option<i32>`. The type of `some_char` is\n`Option<char>`, which is a different type. Rust can infer these types because\nwe’ve specified a value inside the `Some` variant. For `absent_number`, Rust\nrequires us to annotate the overall `Option` type: The compiler can’t infer the\ntype that the corresponding `Some` variant will hold by looking only at a\n`None` value. Here, we tell Rust that we mean for `absent_number` to be of type\n`Option<i32>`."
+  },
+  {
+    "id": "rust-book-13",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "When we have a `Some` value, we know that a value is present, and the value is\nheld within the `Some`. When we have a `None` value, in some sense it means the\nsame thing as null: We don’t have a valid value. So, why is having `Option<T>`\nany better than having null?\n\nIn short, because `Option<T>` and `T` (where `T` can be any type) are different\ntypes, the compiler won’t let us use an `Option<T>` value as if it were\ndefinitely a valid value. For example, this code won’t compile, because it’s\ntrying to add an `i8` to an `Option<i8>`:\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-07-cant-use-option-directly/src/main.rs:here}}\n```\n\nIf we run this code, we get an error message like this one:\n\n```console\n{{#include ../listings/ch06-enums-and-pattern-matching/no-listing-07-cant-use-option-directly/output.txt}}\n```"
+  },
+  {
+    "id": "rust-book-14",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "Intense! In effect, this error message means that Rust doesn’t understand how\nto add an `i8` and an `Option<i8>`, because they’re different types. When we\nhave a value of a type like `i8` in Rust, the compiler will ensure that we\nalways have a valid value. We can proceed confidently without having to check\nfor null before using that value. Only when we have an `Option<i8>` (or\nwhatever type of value we’re working with) do we have to worry about possibly\nnot having a value, and the compiler will make sure we handle that case before\nusing the value.\n\nIn other words, you have to convert an `Option<T>` to a `T` before you can\nperform `T` operations with it. Generally, this helps catch one of the most\ncommon issues with null: assuming that something isn’t null when it actually is."
+  },
+  {
+    "id": "rust-book-15",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "Eliminating the risk of incorrectly assuming a not-null value helps you be more\nconfident in your code. In order to have a value that can possibly be null, you\nmust explicitly opt in by making the type of that value `Option<T>`. Then, when\nyou use that value, you are required to explicitly handle the case when the\nvalue is null. Everywhere that a value has a type that isn’t an `Option<T>`,\nyou _can_ safely assume that the value isn’t null. This was a deliberate design\ndecision for Rust to limit null’s pervasiveness and increase the safety of Rust\ncode.\n\nSo how do you get the `T` value out of a `Some` variant when you have a value\nof type `Option<T>` so that you can use that value? The `Option<T>` enum has a\nlarge number of methods that are useful in a variety of situations; you can\ncheck them out in [its documentation][docs]<!-- ignore -->. Becoming familiar\nwith the methods on `Option<T>` will be extremely useful in your journey with\nRust."
+  },
+  {
+    "id": "rust-book-16",
+    "sourceId": "rust-book",
+    "section": "The `Option` Enum",
+    "url": "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum",
+    "text": "In general, in order to use an `Option<T>` value, you want to have code that\nwill handle each variant. You want some code that will run only when you have a\n`Some(T)` value, and this code is allowed to use the inner `T`. You want some\nother code to run only if you have a `None` value, and that code doesn’t have a\n`T` value available. The `match` expression is a control flow construct that\ndoes just this when used with enums: It will run different code depending on\nwhich variant of the enum it has, and that code can use the data inside the\nmatching value.\n\n[IpAddr]: ../std/net/enum.IpAddr.html\n[option]: ../std/option/enum.Option.html\n[docs]: ../std/option/enum.Option.html"
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "(untitled)",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html",
+    "text": "<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"the-match-control-flow-operator\"></a>"
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "The `match` Control Flow Construct",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-match-control-flow-construct",
+    "text": "Rust has an extremely powerful control flow construct called `match` that\nallows you to compare a value against a series of patterns and then execute\ncode based on which pattern matches. Patterns can be made up of literal values,\nvariable names, wildcards, and many other things; [Chapter\n19][ch19-00-patterns]<!-- ignore --> covers all the different kinds of patterns\nand what they do. The power of `match` comes from the expressiveness of the\npatterns and the fact that the compiler confirms that all possible cases are\nhandled.\n\nThink of a `match` expression as being like a coin-sorting machine: Coins slide\ndown a track with variously sized holes along it, and each coin falls through\nthe first hole it encounters that it fits into. In the same way, values go\nthrough each pattern in a `match`, and at the first pattern the value “fits,”\nthe value falls into the associated code block to be used during execution.\n\nSpeaking of coins, let’s use them as an example using `match`! We can write a\nfunction that takes an unknown US coin and, in a similar way as the counting\nmachine, determines which coin it is and returns its value in cents, as shown\nin Listing 6-3."
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "The `match` Control Flow Construct",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-match-control-flow-construct",
+    "text": "<Listing number=\"6-3\" caption=\"An enum and a `match` expression that has the variants of the enum as its patterns\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-03/src/main.rs:here}}\n```\n\n</Listing>\n\nLet’s break down the `match` in the `value_in_cents` function. First, we list\nthe `match` keyword followed by an expression, which in this case is the value\n`coin`. This seems very similar to a conditional expression used with `if`, but\nthere’s a big difference: With `if`, the condition needs to evaluate to a\nBoolean value, but here it can be any type. The type of `coin` in this example\nis the `Coin` enum that we defined on the first line.\n\nNext are the `match` arms. An arm has two parts: a pattern and some code. The\nfirst arm here has a pattern that is the value `Coin::Penny` and then the `=>`\noperator that separates the pattern and the code to run. The code in this case\nis just the value `1`. Each arm is separated from the next with a comma."
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "The `match` Control Flow Construct",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-match-control-flow-construct",
+    "text": "When the `match` expression executes, it compares the resultant value against\nthe pattern of each arm, in order. If a pattern matches the value, the code\nassociated with that pattern is executed. If that pattern doesn’t match the\nvalue, execution continues to the next arm, much as in a coin-sorting machine.\nWe can have as many arms as we need: In Listing 6-3, our `match` has four arms.\n\nThe code associated with each arm is an expression, and the resultant value of\nthe expression in the matching arm is the value that gets returned for the\nentire `match` expression.\n\nWe don’t typically use curly brackets if the match arm code is short, as it is\nin Listing 6-3 where each arm just returns a value. If you want to run multiple\nlines of code in a match arm, you must use curly brackets, and the comma\nfollowing the arm is then optional. For example, the following code prints\n“Lucky penny!” every time the method is called with a `Coin::Penny`, but it\nstill returns the last value of the block, `1`:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-08-match-arm-multiple-lines/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "Patterns That Bind to Values",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#patterns-that-bind-to-values",
+    "text": "Another useful feature of match arms is that they can bind to the parts of the\nvalues that match the pattern. This is how we can extract values out of enum\nvariants.\n\nAs an example, let’s change one of our enum variants to hold data inside it.\nFrom 1999 through 2008, the United States minted quarters with different\ndesigns for each of the 50 states on one side. No other coins got state\ndesigns, so only quarters have this extra value. We can add this information to\nour `enum` by changing the `Quarter` variant to include a `UsState` value\nstored inside it, which we’ve done in Listing 6-4.\n\n<Listing number=\"6-4\" caption=\"A `Coin` enum in which the `Quarter` variant also holds a `UsState` value\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-04/src/main.rs:here}}\n```\n\n</Listing>\n\nLet’s imagine that a friend is trying to collect all 50 state quarters. While\nwe sort our loose change by coin type, we’ll also call out the name of the\nstate associated with each quarter so that if it’s one our friend doesn’t have,\nthey can add it to their collection."
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Patterns That Bind to Values",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#patterns-that-bind-to-values",
+    "text": "In the match expression for this code, we add a variable called `state` to the\npattern that matches values of the variant `Coin::Quarter`. When a\n`Coin::Quarter` matches, the `state` variable will bind to the value of that\nquarter’s state. Then, we can use `state` in the code for that arm, like so:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-09-variable-in-pattern/src/main.rs:here}}\n```\n\nIf we were to call `value_in_cents(Coin::Quarter(UsState::Alaska))`, `coin`\nwould be `Coin::Quarter(UsState::Alaska)`. When we compare that value with each\nof the match arms, none of them match until we reach `Coin::Quarter(state)`. At\nthat point, the binding for `state` will be the value `UsState::Alaska`. We can\nthen use that binding in the `println!` expression, thus getting the inner\nstate value out of the `Coin` enum variant for `Quarter`.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"matching-with-optiont\"></a>"
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "The `Option<T>` `match` Pattern",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-optiont-match-pattern",
+    "text": "In the previous section, we wanted to get the inner `T` value out of the `Some`\ncase when using `Option<T>`; we can also handle `Option<T>` using `match`, as\nwe did with the `Coin` enum! Instead of comparing coins, we’ll compare the\nvariants of `Option<T>`, but the way the `match` expression works remains the\nsame.\n\nLet’s say we want to write a function that takes an `Option<i32>` and, if\nthere’s a value inside, adds 1 to that value. If there isn’t a value inside,\nthe function should return the `None` value and not attempt to perform any\noperations.\n\nThis function is very easy to write, thanks to `match`, and will look like\nListing 6-5.\n\n<Listing number=\"6-5\" caption=\"A function that uses a `match` expression on an `Option<i32>`\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-05/src/main.rs:here}}\n```\n\n</Listing>\n\nLet’s examine the first execution of `plus_one` in more detail. When we call\n`plus_one(five)`, the variable `x` in the body of `plus_one` will have the\nvalue `Some(5)`. We then compare that against each match arm:\n\n```rust,ignore\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-05/src/main.rs:first_arm}}\n```"
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "The `Option<T>` `match` Pattern",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-optiont-match-pattern",
+    "text": "The `Some(5)` value doesn’t match the pattern `None`, so we continue to the\nnext arm:\n\n```rust,ignore\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-05/src/main.rs:second_arm}}\n```\n\nDoes `Some(5)` match `Some(i)`? It does! We have the same variant. The `i`\nbinds to the value contained in `Some`, so `i` takes the value `5`. The code in\nthe match arm is then executed, so we add 1 to the value of `i` and create a\nnew `Some` value with our total `6` inside.\n\nNow let’s consider the second call of `plus_one` in Listing 6-5, where `x` is\n`None`. We enter the `match` and compare to the first arm:\n\n```rust,ignore\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-05/src/main.rs:first_arm}}\n```\n\nIt matches! There’s no value to add to, so the program stops and returns the\n`None` value on the right side of `=>`. Because the first arm matched, no other\narms are compared."
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "The `Option<T>` `match` Pattern",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#the-optiont-match-pattern",
+    "text": "Combining `match` and enums is useful in many situations. You’ll see this\npattern a lot in Rust code: `match` against an enum, bind a variable to the\ndata inside, and then execute code based on it. It’s a bit tricky at first, but\nonce you get used to it, you’ll wish you had it in all languages. It’s\nconsistently a user favorite."
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "Matches Are Exhaustive",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#matches-are-exhaustive",
+    "text": "There’s one other aspect of `match` we need to discuss: The arms’ patterns must\ncover all possibilities. Consider this version of our `plus_one` function,\nwhich has a bug and won’t compile:\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-10-non-exhaustive-match/src/main.rs:here}}\n```\n\nWe didn’t handle the `None` case, so this code will cause a bug. Luckily, it’s\na bug Rust knows how to catch. If we try to compile this code, we’ll get this\nerror:\n\n```console\n{{#include ../listings/ch06-enums-and-pattern-matching/no-listing-10-non-exhaustive-match/output.txt}}\n```\n\nRust knows that we didn’t cover every possible case and even knows which\npattern we forgot! Matches in Rust are _exhaustive_: We must exhaust every last\npossibility in order for the code to be valid. Especially in the case of\n`Option<T>`, when Rust prevents us from forgetting to explicitly handle the\n`None` case, it protects us from assuming that we have a value when we might\nhave null, thus making the billion-dollar mistake discussed earlier impossible."
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "Catch-All Patterns and the `_` Placeholder",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#catch-all-patterns-and-the-placeholder",
+    "text": "Using enums, we can also take special actions for a few particular values, but\nfor all other values take one default action. Imagine we’re implementing a game\nwhere, if you roll a 3 on a dice roll, your player doesn’t move but instead\ngets a fancy new hat. If you roll a 7, your player loses a fancy hat. For all\nother values, your player moves that number of spaces on the game board. Here’s\na `match` that implements that logic, with the result of the dice roll\nhardcoded rather than a random value, and all other logic represented by\nfunctions without bodies because actually implementing them is out of scope for\nthis example:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-15-binding-catchall/src/main.rs:here}}\n```\n\nFor the first two arms, the patterns are the literal values `3` and `7`. For\nthe last arm that covers every other possible value, the pattern is the\nvariable we’ve chosen to name `other`. The code that runs for the `other` arm\nuses the variable by passing it to the `move_player` function."
+  },
+  {
+    "id": "rust-book-11",
+    "sourceId": "rust-book",
+    "section": "Catch-All Patterns and the `_` Placeholder",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#catch-all-patterns-and-the-placeholder",
+    "text": "This code compiles, even though we haven’t listed all the possible values a\n`u8` can have, because the last pattern will match all values not specifically\nlisted. This catch-all pattern meets the requirement that `match` must be\nexhaustive. Note that we have to put the catch-all arm last because the\npatterns are evaluated in order. If we had put the catch-all arm earlier, the\nother arms would never run, so Rust will warn us if we add arms after a\ncatch-all!\n\nRust also has a pattern we can use when we want a catch-all but don’t want to\n_use_ the value in the catch-all pattern: `_` is a special pattern that matches\nany value and does not bind to that value. This tells Rust we aren’t going to\nuse the value, so Rust won’t warn us about an unused variable.\n\nLet’s change the rules of the game: Now, if you roll anything other than a 3 or\na 7, you must roll again. We no longer need to use the catch-all value, so we\ncan change our code to use `_` instead of the variable named `other`:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-16-underscore-catchall/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-12",
+    "sourceId": "rust-book",
+    "section": "Catch-All Patterns and the `_` Placeholder",
+    "url": "https://doc.rust-lang.org/book/ch06-02-match.html#catch-all-patterns-and-the-placeholder",
+    "text": "This example also meets the exhaustiveness requirement because we’re explicitly\nignoring all other values in the last arm; we haven’t forgotten anything.\n\nFinally, we’ll change the rules of the game one more time so that nothing else\nhappens on your turn if you roll anything other than a 3 or a 7. We can express\nthat by using the unit value (the empty tuple type we mentioned in [“The Tuple\nType”][tuples]<!-- ignore --> section) as the code that goes with the `_` arm:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-17-underscore-unit/src/main.rs:here}}\n```\n\nHere, we’re telling Rust explicitly that we aren’t going to use any other value\nthat doesn’t match a pattern in an earlier arm, and we don’t want to run any\ncode in this case.\n\nThere’s more about patterns and matching that we’ll cover in [Chapter\n19][ch19-00-patterns]<!-- ignore -->. For now, we’re going to move on to the\n`if let` syntax, which can be useful in situations where the `match` expression\nis a bit wordy.\n\n[tuples]: ch03-02-data-types.html#the-tuple-type\n[ch19-00-patterns]: ch19-00-patterns.html"
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "Concise Control Flow with `if let` and `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#concise-control-flow-with-if-let-and-letelse",
+    "text": "The `if let` syntax lets you combine `if` and `let` into a less verbose way to\nhandle values that match one pattern while ignoring the rest. Consider the\nprogram in Listing 6-6 that matches on an `Option<u8>` value in the\n`config_max` variable but only wants to execute code if the value is the `Some`\nvariant.\n\n<Listing number=\"6-6\" caption=\"A `match` that only cares about executing code when the value is `Some`\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-06/src/main.rs:here}}\n```\n\n</Listing>\n\nIf the value is `Some`, we print out the value in the `Some` variant by binding\nthe value to the variable `max` in the pattern. We don’t want to do anything\nwith the `None` value. To satisfy the `match` expression, we have to add `_ =>\n()` after processing just one variant, which is annoying boilerplate code to\nadd.\n\nInstead, we could write this in a shorter way using `if let`. The following\ncode behaves the same as the `match` in Listing 6-6:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-12-if-let/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "Concise Control Flow with `if let` and `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#concise-control-flow-with-if-let-and-letelse",
+    "text": "The syntax `if let` takes a pattern and an expression separated by an equal\nsign. It works the same way as a `match`, where the expression is given to the\n`match` and the pattern is its first arm. In this case, the pattern is\n`Some(max)`, and the `max` binds to the value inside the `Some`. We can then\nuse `max` in the body of the `if let` block in the same way we used `max` in\nthe corresponding `match` arm. The code in the `if let` block only runs if the\nvalue matches the pattern.\n\nUsing `if let` means less typing, less indentation, and less boilerplate code.\nHowever, you lose the exhaustive checking `match` enforces that ensures that\nyou aren’t forgetting to handle any cases. Choosing between `match` and `if\nlet` depends on what you’re doing in your particular situation and whether\ngaining conciseness is an appropriate trade-off for losing exhaustive checking.\n\nIn other words, you can think of `if let` as syntax sugar for a `match` that\nruns code when the value matches one pattern and then ignores all other values."
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "Concise Control Flow with `if let` and `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#concise-control-flow-with-if-let-and-letelse",
+    "text": "We can include an `else` with an `if let`. The block of code that goes with the\n`else` is the same as the block of code that would go with the `_` case in the\n`match` expression that is equivalent to the `if let` and `else`. Recall the\n`Coin` enum definition in Listing 6-4, where the `Quarter` variant also held a\n`UsState` value. If we wanted to count all non-quarter coins we see while also\nannouncing the state of the quarters, we could do that with a `match`\nexpression, like this:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-13-count-and-announce-match/src/main.rs:here}}\n```\n\nOr we could use an `if let` and `else` expression, like this:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/no-listing-14-count-and-announce-if-let-else/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "Staying on the “Happy Path” with `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#staying-on-the-happy-path-with-letelse",
+    "text": "The common pattern is to perform some computation when a value is present and\nreturn a default value otherwise. Continuing with our example of coins with a\n`UsState` value, if we wanted to say something funny depending on how old the\nstate on the quarter was, we might introduce a method on `UsState` to check the\nage of a state, like so:\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-07/src/main.rs:state}}\n```\n\nThen, we might use `if let` to match on the type of coin, introducing a `state`\nvariable within the body of the condition, as in Listing 6-7.\n\n<Listing number=\"6-7\" caption=\"Checking whether a state existed in 1900 by using conditionals nested inside an `if let`\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-07/src/main.rs:describe}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "Staying on the “Happy Path” with `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#staying-on-the-happy-path-with-letelse",
+    "text": "That gets the job done, but it has pushed the work into the body of the `if\nlet` statement, and if the work to be done is more complicated, it might be\nhard to follow exactly how the top-level branches relate. We could also take\nadvantage of the fact that expressions produce a value either to produce the\n`state` from the `if let` or to return early, as in Listing 6-8. (You could do\nsomething similar with a `match`, too.)\n\n<Listing number=\"6-8\" caption=\"Using `if let` to produce a value or return early\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-08/src/main.rs:describe}}\n```\n\n</Listing>\n\nThis is a bit annoying to follow in its own way, though! One branch of the `if\nlet` produces a value, and the other one returns from the function entirely."
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Staying on the “Happy Path” with `let...else`",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#staying-on-the-happy-path-with-letelse",
+    "text": "To make this common pattern nicer to express, Rust has `let...else`. The\n`let...else` syntax takes a pattern on the left side and an expression on the\nright, very similar to `if let`, but it does not have an `if` branch, only an\n`else` branch. If the pattern matches, it will bind the value from the pattern\nin the outer scope. If the pattern does _not_ match, the program will flow into\nthe `else` arm, which must return from the function.\n\nIn Listing 6-9, you can see how Listing 6-8 looks when using `let...else` in\nplace of `if let`.\n\n<Listing number=\"6-9\" caption=\"Using `let...else` to clarify the flow through the function\">\n\n```rust\n{{#rustdoc_include ../listings/ch06-enums-and-pattern-matching/listing-06-09/src/main.rs:describe}}\n```\n\n</Listing>\n\nNotice that it stays on the “happy path” in the main body of the function this\nway, without having significantly different control flow for two branches the\nway the `if let` did.\n\nIf you have a situation in which your program has logic that is too verbose to\nexpress using a `match`, remember that `if let` and `let...else` are in your\nRust toolbox as well."
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "Summary",
+    "url": "https://doc.rust-lang.org/book/ch06-03-if-let.html#summary",
+    "text": "We’ve now covered how to use enums to create custom types that can be one of a\nset of enumerated values. We’ve shown how the standard library’s `Option<T>`\ntype helps you use the type system to prevent errors. When enum values have\ndata inside them, you can use `match` or `if let` to extract and use those\nvalues, depending on how many cases you need to handle.\n\nYour Rust programs can now express concepts in your domain using structs and\nenums. Creating custom types to use in your API ensures type safety: The\ncompiler will make certain your functions only get values of the type each\nfunction expects.\n\nIn order to provide a well-organized API to your users that is straightforward\nto use and only exposes exactly what your users will need, let’s now turn to\nRust’s modules."
   }
 ]

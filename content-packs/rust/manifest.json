@@ -1,13 +1,17 @@
 {
-  "_comment": "Curated chapter list for the ownership -> borrowing -> structs milestone (see the plan artifact). Deliberately small for the v0 proof-of-concept - extending this to the full milestone map is mechanical, not a redesign.",
+  "_comment": "Curated chapter list for Lesson 1: ownership through pattern matching (Ch4 Understanding Ownership, Ch5 structs, Ch6 Enums and Pattern Matching). Deliberately small for the v0 proof-of-concept - extending this to the full milestone map is mechanical, not a redesign.",
   "sourceId": "rust-book",
   "baseRawUrl": "https://raw.githubusercontent.com/rust-lang/book/main/src/",
   "docBaseUrl": "https://doc.rust-lang.org/book/",
-  "_relevanceThresholdRationale": "Calibrated against this pack's real score distribution (see README): good matches scored 6-11, an off-topic query that incidentally shared one word with an example scored 2.6-3.2.",
-  "relevanceThreshold": 5.0,
+  "_relevanceThresholdRationale": "Re-calibrated 2026-08-31 after the pack grew from 3 to 7 chapters (added slices, enums, match, if-let). The original 5.0, calibrated only against the 3-chapter ownership/structs corpus, broke down hard on the larger, more diverse one: an 8-good/7-bad probe (5 totally-off-topic or genuinely-uncovered-but-Rust-adjacent bad queries - traits, generics, Result/?, threads, plus 2 true off-topic controls) found 5 of 7 bad queries falsely grounded at 5.0, including 'how do I make a good pasta carbonara' scoring 6.55 - a pure cooking question, grounded purely because 'good' and stray phrasing overlapped the ownership chapter's vocabulary. Worse, this corpus does NOT admit any cleanly-separating scalar: the single worst false positive, 'how do I implement a custom trait for my struct' (traits are not covered by this pack at all), scored 12.90 - HIGHER than the best genuinely-good query in the probe (12.70, 'can I have multiple immutable references at once') - so no threshold can pass every good query while blocking it. Chose 9.0 as the best available trade-off: it eliminates 4 of the 5 confirmed false positives (pasta/threads/errors-Result/generics), at the cost of 3 of 8 good queries whose top score fell below it ('what does match do', 'if let vs match', 'struct vs tuple' - each phrased sparsely enough to score 6-8) now refusing and needing a rephrase. The 12.90 trait outlier remains a known, irreducible residual risk at any usable threshold - same class of BM25 corpus-heterogeneity limitation as content-packs/firmware/manifest.json's RAM-budget case, but here the overlap is total rather than a narrow band, so it could not be fully engineered away by threshold choice alone. See README's 'A real, honest limitation' section.",
+  "relevanceThreshold": 9.0,
   "chapters": [
     { "file": "ch04-01-what-is-ownership.md", "docPath": "ch04-01-what-is-ownership.html" },
     { "file": "ch04-02-references-and-borrowing.md", "docPath": "ch04-02-references-and-borrowing.html" },
-    { "file": "ch05-01-defining-structs.md", "docPath": "ch05-01-defining-structs.html" }
+    { "file": "ch04-03-slices.md", "docPath": "ch04-03-slices.html" },
+    { "file": "ch05-01-defining-structs.md", "docPath": "ch05-01-defining-structs.html" },
+    { "file": "ch06-01-defining-an-enum.md", "docPath": "ch06-01-defining-an-enum.html" },
+    { "file": "ch06-02-match.md", "docPath": "ch06-02-match.html" },
+    { "file": "ch06-03-if-let.md", "docPath": "ch06-03-if-let.html" }
   ]
 }

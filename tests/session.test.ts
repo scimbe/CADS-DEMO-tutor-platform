@@ -101,4 +101,51 @@ describe("TutorSession", () => {
     }
     expect(memory.recordInteraction).not.toHaveBeenCalled();
   });
+
+  it("ask() with no options behaves exactly as before (explain mode, understand level)", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = {
+      complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Ownership means one owner at a time."),
+    };
+    const memory: InteractionRecorder = {
+      recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined),
+    };
+    const session = new TutorSession(engine, llm, memory);
+
+    const query = "What is ownership in Rust?";
+    const answer = engine.ask(query);
+    const expectedPrompt = engine.buildGroundedPrompt(query, answer);
+
+    const result = await session.ask("student-1", query);
+
+    expect(llm.complete).toHaveBeenCalledWith(expectedPrompt);
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.mode).toBe("explain");
+      expect(result.bloomLevel).toBe("understand");
+    }
+  });
+
+  it("passing bloomLevel:'apply' produces a socratic answer and prompts the llm with the socratic instruction", async () => {
+    const engine = makeEngine();
+    const complete = jest.fn<Explainer["complete"]>().mockResolvedValue("What do you think happens if you try that?");
+    const llm: Explainer = { complete };
+    const memory: InteractionRecorder = {
+      recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined),
+    };
+    const session = new TutorSession(engine, llm, memory);
+
+    const query = "What is ownership in Rust?";
+    const result = await session.ask("student-1", query, { bloomLevel: "apply" });
+
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.mode).toBe("socratic");
+      expect(result.bloomLevel).toBe("apply");
+    }
+
+    const calledPrompt = complete.mock.calls[0][0];
+    expect(calledPrompt).toContain("help the student apply a concept");
+    expect(calledPrompt).not.toContain("Answer the student's question using ONLY the numbered");
+  });
 });

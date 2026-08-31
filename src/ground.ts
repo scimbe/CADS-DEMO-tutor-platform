@@ -74,18 +74,20 @@ export class GroundingEngine {
    * which chunk(s) were used. The engine hands the model material and a
    * rule, not a green light to free-associate.
    */
-  buildGroundedPrompt(query: string, answer: GroundedAnswer): string {
-    if (!answer.grounded) {
-      throw new Error("buildGroundedPrompt called on an ungrounded answer - check answer.grounded first.");
-    }
-
-    const context = answer.citations
+  citationContext(answer: GroundedAnswer): string {
+    return answer.citations
       .map((c, i) => {
         const source = this.sourceFor(c.chunk);
         const label = source ? `${source.title} (${source.license})` : c.chunk.sourceId;
         return `[${i + 1}] ${label} — ${c.chunk.section}\n${c.chunk.text}`;
       })
       .join("\n\n");
+  }
+
+  buildGroundedPrompt(query: string, answer: GroundedAnswer): string {
+    if (!answer.grounded) {
+      throw new Error("buildGroundedPrompt called on an ungrounded answer - check answer.grounded first.");
+    }
 
     return [
       "You are CaDS Tutor. Answer the student's question using ONLY the numbered",
@@ -93,7 +95,7 @@ export class GroundingEngine {
       "excerpt number(s) you used at the end of your answer.",
       "",
       "Reference excerpts:",
-      context,
+      this.citationContext(answer),
       "",
       `Student's question: ${query}`,
     ].join("\n");

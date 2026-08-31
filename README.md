@@ -46,7 +46,7 @@ reference docs (real, licensed) --chunk--> Chunk[] --index--> Retriever --search
   type TutorTurnResult =
     | { kind: "refused"; reason: string }
     | { kind: "llm-error"; citations: RetrievedChunk[]; message: string }
-    | { kind: "answer"; text: string; citations: RetrievedChunk[] };
+    | { kind: "answer"; text: string; citations: RetrievedChunk[]; mode: BloomPromptMode; bloomLevel: BloomLevel };
   ```
 
   so a caller can `switch` on `kind` and handle "never asked the LLM", "asked and it failed", and "got
@@ -62,6 +62,35 @@ reference docs (real, licensed) --chunk--> Chunk[] --index--> Retriever --search
   in now would have been a guess dressed up as a feature. `recallSimilarInteractions` is implemented
   and available for whichever tutor extension wants it; `session.ts` deliberately doesn't call it
   until that decision is made.
+
+- **`bloom.ts`** — Bloom's-taxonomy-aware, Socratic-mode prompting, shared identically by both the
+  Rust and Firmware tracks (one engine, not a per-track reimplementation). `TutorSession.ask()` takes
+  an optional `{ bloomLevel, attemptNumber }`: `remember`/`understand` (the default) delegate
+  byte-for-byte to `buildGroundedPrompt` — today's unchanged direct-explanation behavior — while
+  `apply`/`analyze`/`evaluate`/`create` build a Socratic prompt instead, from the exact same cited
+  material (`GroundingEngine#citationContext`, extracted as a pure refactor so both prompt styles are
+  provably grounded in identical excerpts). The model is asked to pose ONE guiding question rather
+  than answer directly, with a per-level gloss of what that Bloom level actually calls for (e.g.
+  `evaluate` → "judge or weigh a trade-off... against an explicit criterion", not just "ask something
+  harder"). A caller-supplied `attemptNumber` selects one of three escalation tiers (open question →
+  narrower question → a near-direct hint that still stops short of the answer) — deliberately
+  caller-driven, not auto-detected from `recallSimilarInteractions`' similarity scores, for the same
+  reason the BM25 relevance threshold above needs real per-corpus calibration rather than a
+  universal number: guessing an unvalidated "is this a retry" threshold would be exactly the kind of
+  guess this project has already been burned by twice. This is the platform's answer to the product
+  requirement that the tutor's proactive help work "richtig nach bloomscher Taxonomie" with genuine
+  Socratic method, not an LLM system-prompt platitude — see `docs/reference/` in each consuming
+  extension for how curriculum steps map to a target Bloom level.
+
+  **A real finding from verifying this against the live LLM, not swept under the rug**: the first
+  escalation tier's original wording ("ask exactly ONE open guiding question... do not simply state
+  the answer") was not enough — a live call reproducibly padded its one question with a 3-point
+  explanatory breakdown that amounted to the direct answer, satisfying the letter of the instruction
+  while violating its spirit. Strengthened to an explicit, unambiguous format constraint ("your
+  entire response must be that one question and nothing else... a response that explains the concept
+  and THEN asks a question has failed this task"), re-verified against the live endpoint (identical,
+  correct single-question output across two real calls) — see `tests/bloom.test.ts`'s regression
+  guard for the exact wording this depends on.
 
 ## A real, honest limitation found while building this
 
@@ -80,7 +109,7 @@ project's own firmware work never trusts an untested assumption.
 
 ```bash
 npm install
-npm test                                    # 18 tests, all against real logic/real whisper.cpp, no LLM needed
+npm test                                    # 32 tests, all against real logic/real whisper.cpp, no LLM needed
 npm run ingest -- content-packs/rust        # fetches real chapters from github.com/rust-lang/book
 npx tsc && node dist/cli/demo.js content-packs/rust "why do I need a reference instead of taking ownership"
 ```
@@ -153,7 +182,7 @@ actually verified.
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 18 passing tests
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 32 passing tests
 (the original grounding suite plus `TutorSession`'s three-case coverage: refused / llm-error /
 answer), a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
 

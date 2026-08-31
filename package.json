@@ -1,6 +1,6 @@
 {
   "name": "@cads/tutor-platform",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Shared grounding/citation engine for CaDS Tutor - reference-sourced content for both the Rust and Firmware tutors, never LLM-generated language facts.",
   "type": "module",
   "main": "dist/index.js",

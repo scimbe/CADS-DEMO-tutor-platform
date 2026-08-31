@@ -52,3 +52,7 @@ export interface Retriever {
   /** Returns the top candidates, sorted by relevance descending. */
   search(query: string, topK: number): RetrievedChunk[];
 }
+
+export type BloomLevel = "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
+
+export const BLOOM_LEVELS: readonly BloomLevel[] = ["remember", "understand", "apply", "analyze", "evaluate", "create"];

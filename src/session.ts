@@ -1,10 +1,17 @@
+import type { BloomPromptMode } from "./bloom.js";
+import { buildTutorPrompt } from "./bloom.js";
 import type { GroundingEngine } from "./ground.js";
-import type { RetrievedChunk } from "./types.js";
+import type { BloomLevel, RetrievedChunk } from "./types.js";
 
 export type TutorTurnResult =
   | { kind: "refused"; reason: string }
   | { kind: "llm-error"; citations: RetrievedChunk[]; message: string }
-  | { kind: "answer"; text: string; citations: RetrievedChunk[] };
+  | { kind: "answer"; text: string; citations: RetrievedChunk[]; mode: BloomPromptMode; bloomLevel: BloomLevel };
+
+export interface AskOptions {
+  bloomLevel?: BloomLevel;
+  attemptNumber?: number;
+}
 
 export interface Explainer {
   complete(prompt: string): Promise<string>;
@@ -28,13 +35,13 @@ export class TutorSession {
     private readonly memory: InteractionRecorder
   ) {}
 
-  async ask(studentId: string, query: string): Promise<TutorTurnResult> {
+  async ask(studentId: string, query: string, options: AskOptions = {}): Promise<TutorTurnResult> {
     const answer = this.engine.ask(query);
     if (!answer.grounded) {
       return { kind: "refused", reason: answer.refusalReason! };
     }
 
-    const prompt = this.engine.buildGroundedPrompt(query, answer);
+    const { prompt, mode, bloomLevel } = buildTutorPrompt(this.engine, query, answer, options);
 
     let text: string;
     try {
@@ -51,11 +58,13 @@ export class TutorSession {
       await this.memory.recordInteraction(studentId, text, {
         query,
         citedChunkIds: answer.citations.map((c) => c.chunk.id),
+        bloomLevel,
+        mode,
       });
     } catch (err) {
       console.warn("TutorSession: failed to record interaction", err);
     }
 
-    return { kind: "answer", text, citations: answer.citations };
+    return { kind: "answer", text, citations: answer.citations, mode, bloomLevel };
   }
 }

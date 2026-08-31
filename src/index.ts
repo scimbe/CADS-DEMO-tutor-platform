@@ -5,3 +5,4 @@ export * from "./ground.js";
 export * from "./llm.js";
 export * from "./memory.js";
 export * from "./session.js";
+export * from "./stt.js";

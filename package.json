@@ -1,6 +1,6 @@
 {
   "name": "@cads/tutor-platform",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Shared grounding/citation engine for CaDS Tutor - reference-sourced content for both the Rust and Firmware tutors, never LLM-generated language facts.",
   "type": "module",
   "main": "dist/index.js",
@@ -16,7 +16,9 @@
     "prepare": "tsc",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "ingest": "tsc && node dist/cli/ingest.js",
-    "tutor": "tsc && node --env-file=.env dist/cli/tutor.js"
+    "tutor": "tsc && node --env-file=.env dist/cli/tutor.js",
+    "whisper-service": "tsc && node dist/cli/whisper-service.js",
+    "setup-whisper": "bash scripts/setup-whisper-cpp.sh"
   },
   "dependencies": {
     "student-memory": "github:scimbe/CADS-DEMO-student-memory"

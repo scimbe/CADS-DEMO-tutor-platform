@@ -3,3 +3,4 @@ dist/
 .env
 *.lancedb/
 memory-data/
+vendor/

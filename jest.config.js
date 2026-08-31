@@ -8,5 +8,6 @@ export default {
   transform: {
     "^.+\\.ts$": ["ts-jest", { useESM: true }],
   },
+  testPathIgnorePatterns: ["/node_modules/", "/vendor/"],
   testEnvironment: "node",
 };

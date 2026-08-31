@@ -80,7 +80,7 @@ project's own firmware work never trusts an untested assumption.
 
 ```bash
 npm install
-npm test                                    # 15 tests, all against real logic, no LLM needed
+npm test                                    # 18 tests, all against real logic/real whisper.cpp, no LLM needed
 npm run ingest -- content-packs/rust        # fetches real chapters from github.com/rust-lang/book
 npx tsc && node dist/cli/demo.js content-packs/rust "why do I need a reference instead of taking ownership"
 ```
@@ -108,6 +108,32 @@ TUTOR_LLM_MODEL=your-model-name
 URL already caused a real, hard-to-diagnose 401 in this project's own firmware-lab tutor (looked like
 a bad credential, wasn't one), so that mistake fails loudly here instead of quietly.
 
+### Speech-to-text: the whisper service
+
+`src/stt.ts` wraps [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-cli`, real
+process, no mocking) for offline speech-to-text — the same integration pattern already proven in
+[`CADS-DEMO-deutschlandatlas-callcenter`](https://github.com/scimbe/CADS-DEMO-deutschlandatlas-callcenter)'s
+`callcenter_speech/stt.py`, ported to TypeScript rather than reinvented. `src/cli/whisper-service.ts`
+puts a small, standalone HTTP service in front of it — kept separate from the main library (like
+`student-memory`) because whisper.cpp is a native binary plus a multi-hundred-MB model file, not a
+dependency the grounding/dialog code itself should carry.
+
+```bash
+npm run setup-whisper          # clones+builds whisper.cpp, downloads a multilingual ggml model
+npm run whisper-service        # starts the HTTP service on :8756 (WHISPER_SERVICE_PORT to override)
+curl -X POST --data-binary @clip.wav "http://localhost:8756/transcribe?lang=de"   # or lang=en, or omit for auto-detect
+```
+
+Real, hardware-verified round trip (not a mock): `say` (macOS's built-in TTS, used only to
+generate a test speech clip — this repo doesn't have Piper set up) synthesized "Ask the tutor a
+question about ownership and borrowing," POSTed to a running `whisper-service`, and got back
+`"Ask the two tour a question about ownership and borrowing."` — a real, honest limitation, not
+swept under the rug: whisper.cpp's smallest "base" model, on a synthetic (not natural) voice,
+regularly mishears words a human speaker would produce cleanly ("tutor" → "two tour"; separately,
+"GPIO" → "gpe open," "firmware" → "film van"). `scripts/setup-whisper-cpp.sh` exists specifically
+so this is a one-line escape hatch, not a rebuild: `WHISPER_MODEL_NAME=small` (~488MB) or
+`medium` (~1.5GB) for real production accuracy.
+
 ## Content packs
 
 | Pack | Sources | Status |
@@ -127,7 +153,7 @@ actually verified.
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 15 passing tests
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 18 passing tests
 (the original grounding suite plus `TutorSession`'s three-case coverage: refused / llm-error /
 answer), a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
 

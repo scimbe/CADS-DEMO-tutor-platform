@@ -1,0 +1,32 @@
+[
+  {
+    "id": "rust-book",
+    "title": "The Rust Programming Language",
+    "license": "MIT OR Apache-2.0",
+    "url": "https://doc.rust-lang.org/book/"
+  },
+  {
+    "id": "rust-by-example",
+    "title": "Rust by Example",
+    "license": "MIT OR Apache-2.0",
+    "url": "https://doc.rust-lang.org/rust-by-example/"
+  },
+  {
+    "id": "rustlings",
+    "title": "Rustlings",
+    "license": "MIT",
+    "url": "https://github.com/rust-lang/rustlings"
+  },
+  {
+    "id": "comprehensive-rust",
+    "title": "Comprehensive Rust",
+    "license": "Apache-2.0 AND CC-BY-4.0",
+    "url": "https://google.github.io/comprehensive-rust/"
+  },
+  {
+    "id": "embedded-rust-book",
+    "title": "The Embedded Rust Book",
+    "license": "MIT OR Apache-2.0",
+    "url": "https://docs.rust-embedded.org/book/"
+  }
+]

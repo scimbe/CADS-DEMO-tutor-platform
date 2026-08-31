@@ -1,0 +1,401 @@
+[
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "What Is Ownership?",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#what-is-ownership",
+    "text": "_Ownership_ is a set of rules that govern how a Rust program manages memory.\nAll programs have to manage the way they use a computer’s memory while running.\nSome languages have garbage collection that regularly looks for no-longer-used\nmemory as the program runs; in other languages, the programmer must explicitly\nallocate and free the memory. Rust uses a third approach: Memory is managed\nthrough a system of ownership with a set of rules that the compiler checks. If\nany of the rules are violated, the program won’t compile. None of the features\nof ownership will slow down your program while it’s running.\n\nBecause ownership is a new concept for many programmers, it does take some time\nto get used to. The good news is that the more experienced you become with Rust\nand the rules of the ownership system, the easier you’ll find it to naturally\ndevelop code that is safe and efficient. Keep at it!\n\nWhen you understand ownership, you’ll have a solid foundation for understanding\nthe features that make Rust unique. In this chapter, you’ll learn ownership by\nworking through some examples that focus on a very common data structure:\nstrings."
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "What Is Ownership?",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#what-is-ownership",
+    "text": "> ### The Stack and the Heap\n>\n> Many programming languages don’t require you to think about the stack and the\n> heap very often. But in a systems programming language like Rust, whether a\n> value is on the stack or the heap affects how the language behaves and why\n> you have to make certain decisions. Parts of ownership will be described in\n> relation to the stack and the heap later in this chapter, so here is a brief\n> explanation in preparation. >\n> Both the stack and the heap are parts of memory available to your code to use\n> at runtime, but they are structured in different ways. The stack stores\n> values in the order it gets them and removes the values in the opposite\n> order. This is referred to as _last in, first out (LIFO)_. Think of a stack of\n> plates: When you add more plates, you put them on top of the pile, and when\n> you need a plate, you take one off the top. Adding or removing plates from\n> the middle or bottom wouldn’t work as well! Adding data is called _pushing\n> onto the stack_, and removing data is called _popping off the stack_. All\n> data stored on the stack must have a known, fixed size."
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "What Is Ownership?",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#what-is-ownership",
+    "text": "Data with an unknown\n> size at compile time or a size that might change must be stored on the heap\n> instead. >\n> The heap is less organized: When you put data on the heap, you request a\n> certain amount of space. The memory allocator finds an empty spot in the heap\n> that is big enough, marks it as being in use, and returns a _pointer_, which\n> is the address of that location. This process is called _allocating on the\n> heap_ and is sometimes abbreviated as just _allocating_ (pushing values onto\n> the stack is not considered allocating). Because the pointer to the heap is a\n> known, fixed size, you can store the pointer on the stack, but when you want\n> the actual data, you must follow the pointer. Think of being seated at a\n> restaurant. When you enter, you state the number of people in your group, and\n> the host finds an empty table that fits everyone and leads you there. If\n> someone in your group comes late, they can ask where you’ve been seated to\n> find you. >\n> Pushing to the stack is faster than allocating on the heap because the\n> allocator never has to search for a place to store new data; that location is\n> always at the top of the stack."
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "What Is Ownership?",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#what-is-ownership",
+    "text": "Comparatively, allocating space on the heap\n> requires more work because the allocator must first find a big enough space\n> to hold the data and then perform bookkeeping to prepare for the next\n> allocation. >\n> Accessing data in the heap is generally slower than accessing data on the\n> stack because you have to follow a pointer to get there. Contemporary\n> processors are faster if they jump around less in memory. Continuing the\n> analogy, consider a server at a restaurant taking orders from many tables. > It’s most efficient to get all the orders at one table before moving on to\n> the next table. Taking an order from table A, then an order from table B,\n> then one from A again, and then one from B again would be a much slower\n> process. By the same token, a processor can usually do its job better if it\n> works on data that’s close to other data (as it is on the stack) rather than\n> farther away (as it can be on the heap). >\n> When your code calls a function, the values passed into the function\n> (including, potentially, pointers to data on the heap) and the function’s\n> local variables get pushed onto the stack. When the function is over, those\n> values get popped off the stack."
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "What Is Ownership?",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#what-is-ownership",
+    "text": ">\n> Keeping track of what parts of code are using what data on the heap,\n> minimizing the amount of duplicate data on the heap, and cleaning up unused\n> data on the heap so that you don’t run out of space are all problems that\n> ownership addresses. Once you understand ownership, you won’t need to think\n> about the stack and the heap very often. But knowing that the main purpose of\n> ownership is to manage heap data can help explain why it works the way it\n> does."
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Ownership Rules",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#ownership-rules",
+    "text": "First, let’s take a look at the ownership rules. Keep these rules in mind as we\nwork through the examples that illustrate them:\n\n- Each value in Rust has an _owner_.\n- There can only be one owner at a time.\n- When the owner goes out of scope, the value will be dropped."
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "Variable Scope",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variable-scope",
+    "text": "Now that we’re past basic Rust syntax, we won’t include all the `fn main() {`\ncode in the examples, so if you’re following along, make sure to put the\nfollowing examples inside a `main` function manually. As a result, our examples\nwill be a bit more concise, letting us focus on the actual details rather than\nboilerplate code.\n\nAs a first example of ownership, we’ll look at the scope of some variables. A\n_scope_ is the range within a program for which an item is valid. Take the\nfollowing variable:\n\n```rust\nlet s = \"hello\";\n```\n\nThe variable `s` refers to a string literal, where the value of the string is\nhardcoded into the text of our program. The variable is valid from the point at\nwhich it’s declared until the end of the current scope. Listing 4-1 shows a\nprogram with comments annotating where the variable `s` would be valid.\n\n<Listing number=\"4-1\" caption=\"A variable and the scope in which it is valid\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-01/src/main.rs:here}}\n```\n\n</Listing>\n\nIn other words, there are two important points in time here:\n\n- When `s` comes _into_ scope, it is valid.\n- It remains valid until it goes _out of_ scope."
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "Variable Scope",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variable-scope",
+    "text": "At this point, the relationship between scopes and when variables are valid is\nsimilar to that in other programming languages. Now we’ll build on top of this\nunderstanding by introducing the `String` type."
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "The `String` Type",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#the-string-type",
+    "text": "To illustrate the rules of ownership, we need a data type that is more complex\nthan those we covered in the [“Data Types”][data-types]<!-- ignore --> section\nof Chapter 3. The types covered previously are of a known size, can be stored\non the stack and popped off the stack when their scope is over, and can be\nquickly and trivially copied to make a new, independent instance if another\npart of code needs to use the same value in a different scope. But we want to\nlook at data that is stored on the heap and explore how Rust knows when to\nclean up that data, and the `String` type is a great example.\n\nWe’ll concentrate on the parts of `String` that relate to ownership. These\naspects also apply to other complex data types, whether they are provided by\nthe standard library or created by you. We’ll discuss non-ownership aspects of\n`String` in [Chapter 8][ch8]<!-- ignore -->."
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "The `String` Type",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#the-string-type",
+    "text": "We’ve already seen string literals, where a string value is hardcoded into our\nprogram. String literals are convenient, but they aren’t suitable for every\nsituation in which we may want to use text. One reason is that they’re\nimmutable. Another is that not every string value can be known when we write\nour code: For example, what if we want to take user input and store it? It is\nfor these situations that Rust has the `String` type. This type manages\ndata allocated on the heap and as such is able to store an amount of text that\nis unknown to us at compile time. You can create a `String` from a string\nliteral using the `from` function, like so:\n\n```rust\nlet s = String::from(\"hello\");\n```\n\nThe double colon `::` operator allows us to namespace this particular `from`\nfunction under the `String` type rather than using some sort of name like\n`string_from`. We’ll discuss this syntax more in the [“Methods”][methods]<!--\nignore --> section of Chapter 5, and when we talk about namespacing with\nmodules in [“Paths for Referring to an Item in the Module\nTree”][paths-module-tree]<!-- ignore --> in Chapter 7.\n\nThis kind of string _can_ be mutated:"
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "The `String` Type",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#the-string-type",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-01-can-mutate-string/src/main.rs:here}}\n```\n\nSo, what’s the difference here? Why can `String` be mutated but literals\ncannot? The difference is in how these two types deal with memory."
+  },
+  {
+    "id": "rust-book-11",
+    "sourceId": "rust-book",
+    "section": "Memory and Allocation",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#memory-and-allocation",
+    "text": "In the case of a string literal, we know the contents at compile time, so the\ntext is hardcoded directly into the final executable. This is why string\nliterals are fast and efficient. But these properties only come from the string\nliteral’s immutability. Unfortunately, we can’t put a blob of memory into the\nbinary for each piece of text whose size is unknown at compile time and whose\nsize might change while running the program.\n\nWith the `String` type, in order to support a mutable, growable piece of text,\nwe need to allocate an amount of memory on the heap, unknown at compile time,\nto hold the contents. This means:\n\n- The memory must be requested from the memory allocator at runtime.\n- We need a way of returning this memory to the allocator when we’re done with\n  our `String`.\n\nThat first part is done by us: When we call `String::from`, its implementation\nrequests the memory it needs. This is pretty much universal in programming\nlanguages."
+  },
+  {
+    "id": "rust-book-12",
+    "sourceId": "rust-book",
+    "section": "Memory and Allocation",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#memory-and-allocation",
+    "text": "However, the second part is different. In languages with a _garbage collector\n(GC)_, the GC keeps track of and cleans up memory that isn’t being used\nanymore, and we don’t need to think about it. In most languages without a GC,\nit’s our responsibility to identify when memory is no longer being used and to\ncall code to explicitly free it, just as we did to request it. Doing this\ncorrectly has historically been a difficult programming problem. If we forget,\nwe’ll waste memory. If we do it too early, we’ll have an invalid variable. If\nwe do it twice, that’s a bug too. We need to pair exactly one `allocate` with\nexactly one `free`.\n\nRust takes a different path: The memory is automatically returned once the\nvariable that owns it goes out of scope. Here’s a version of our scope example\nfrom Listing 4-1 using a `String` instead of a string literal:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-02-string-scope/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-13",
+    "sourceId": "rust-book",
+    "section": "Memory and Allocation",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#memory-and-allocation",
+    "text": "There is a natural point at which we can return the memory our `String` needs\nto the allocator: when `s` goes out of scope. When a variable goes out of\nscope, Rust calls a special function for us. This function is called\n`drop`, and it’s where the author of `String` can put\nthe code to return the memory. Rust calls `drop` automatically at the closing\ncurly bracket.\n\n> Note: In C++, this pattern of deallocating resources at the end of an item’s\n> lifetime is sometimes called _Resource Acquisition Is Initialization (RAII)_.\n> The `drop` function in Rust will be familiar to you if you’ve used RAII\n> patterns.\n\nThis pattern has a profound impact on the way Rust code is written. It may seem\nsimple right now, but the behavior of code can be unexpected in more\ncomplicated situations when we want to have multiple variables use the data\nwe’ve allocated on the heap. Let’s explore some of those situations now.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"ways-variables-and-data-interact-move\"></a>"
+  },
+  {
+    "id": "rust-book-14",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "Multiple variables can interact with the same data in different ways in Rust.\nListing 4-2 shows an example using an integer.\n\n<Listing number=\"4-2\" caption=\"Assigning the integer value of variable `x` to `y`\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-02/src/main.rs:here}}\n```\n\n</Listing>\n\nWe can probably guess what this is doing: “Bind the value `5` to `x`; then, make\na copy of the value in `x` and bind it to `y`.” We now have two variables, `x`\nand `y`, and both equal `5`. This is indeed what is happening, because integers\nare simple values with a known, fixed size, and these two `5` values are pushed\nonto the stack.\n\nNow let’s look at the `String` version:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-03-string-move/src/main.rs:here}}\n```\n\nThis looks very similar, so we might assume that the way it works would be the\nsame: That is, the second line would make a copy of the value in `s1` and bind\nit to `s2`. But this isn’t quite what happens."
+  },
+  {
+    "id": "rust-book-15",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "Take a look at Figure 4-1 to see what is happening to `String` under the\ncovers. A `String` is made up of three parts, shown on the left: a pointer to\nthe memory that holds the contents of the string, a length, and a capacity.\nThis group of data is stored on the stack. On the right is the memory on the\nheap that holds the contents.\n\n<img alt=\"Two tables: the first table contains the representation of s1 on the\nstack, consisting of its length (5), capacity (5), and a pointer to the first\nvalue in the second table. The second table contains the representation of the\nstring data on the heap, byte by byte.\" src=\"img/trpl04-01.svg\" class=\"center\"\nstyle=\"width: 50%;\" />\n\n<span class=\"caption\">Figure 4-1: The representation in memory of a `String`\nholding the value `\"hello\"` bound to `s1`</span>\n\nThe length is how much memory, in bytes, the contents of the `String` are\ncurrently using. The capacity is the total amount of memory, in bytes, that the\n`String` has received from the allocator. The difference between length and\ncapacity matters, but not in this context, so for now, it’s fine to ignore the\ncapacity."
+  },
+  {
+    "id": "rust-book-16",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "When we assign `s1` to `s2`, the `String` data is copied, meaning we copy the\npointer, the length, and the capacity that are on the stack. We do not copy the\ndata on the heap that the pointer refers to. In other words, the data\nrepresentation in memory looks like Figure 4-2.\n\n<img alt=\"Three tables: tables s1 and s2 representing those strings on the\nstack, respectively, and both pointing to the same string data on the heap.\"\nsrc=\"img/trpl04-02.svg\" class=\"center\" style=\"width: 50%;\" />\n\n<span class=\"caption\">Figure 4-2: The representation in memory of the variable\n`s2` that has a copy of the pointer, length, and capacity of `s1`</span>\n\nThe representation does _not_ look like Figure 4-3, which is what memory would\nlook like if Rust instead copied the heap data as well. If Rust did this, the\noperation `s2 = s1` could be very expensive in terms of runtime performance if\nthe data on the heap were large.\n\n<img alt=\"Four tables: two tables representing the stack data for s1 and s2,\nand each points to its own copy of string data on the heap.\"\nsrc=\"img/trpl04-03.svg\" class=\"center\" style=\"width: 50%;\" />"
+  },
+  {
+    "id": "rust-book-17",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "<span class=\"caption\">Figure 4-3: Another possibility for what `s2 = s1` might\ndo if Rust copied the heap data as well</span>\n\nEarlier, we said that when a variable goes out of scope, Rust automatically\ncalls the `drop` function and cleans up the heap memory for that variable. But\nFigure 4-2 shows both data pointers pointing to the same location. This is a\nproblem: When `s2` and `s1` go out of scope, they will both try to free the\nsame memory. This is known as a _double free_ error and is one of the memory\nsafety bugs we mentioned previously. Freeing memory twice can lead to memory\ncorruption, which can potentially lead to security vulnerabilities.\n\nTo ensure memory safety, after the line `let s2 = s1;`, Rust considers `s1` as\nno longer valid. Therefore, Rust doesn’t need to free anything when `s1` goes\nout of scope. Check out what happens when you try to use `s1` after `s2` is\ncreated; it won’t work:\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-04-cant-use-after-move/src/main.rs:here}}\n```\n\nYou’ll get an error like this because Rust prevents you from using the\ninvalidated reference:"
+  },
+  {
+    "id": "rust-book-18",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "```console\n{{#include ../listings/ch04-understanding-ownership/no-listing-04-cant-use-after-move/output.txt}}\n```\n\nIf you’ve heard the terms _shallow copy_ and _deep copy_ while working with\nother languages, the concept of copying the pointer, length, and capacity\nwithout copying the data probably sounds like making a shallow copy. But\nbecause Rust also invalidates the first variable, instead of being called a\nshallow copy, it’s known as a _move_. In this example, we would say that `s1`\nwas _moved_ into `s2`. So, what actually happens is shown in Figure 4-4.\n\n<img alt=\"Three tables: tables s1 and s2 representing those strings on the\nstack, respectively, and both pointing to the same string data on the heap.\nTable s1 is grayed out because s1 is no longer valid; only s2 can be used to\naccess the heap data.\" src=\"img/trpl04-04.svg\" class=\"center\" style=\"width:\n50%;\" />\n\n<span class=\"caption\">Figure 4-4: The representation in memory after `s1` has\nbeen invalidated</span>\n\nThat solves our problem! With only `s2` valid, when it goes out of scope it\nalone will free the memory, and we’re done."
+  },
+  {
+    "id": "rust-book-19",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Move",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move",
+    "text": "In addition, there’s a design choice that’s implied by this: Rust will never\nautomatically create “deep” copies of your data. Therefore, any _automatic_\ncopying can be assumed to be inexpensive in terms of runtime performance."
+  },
+  {
+    "id": "rust-book-20",
+    "sourceId": "rust-book",
+    "section": "Scope and Assignment",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#scope-and-assignment",
+    "text": "The inverse of this is true for the relationship between scoping, ownership, and\nmemory being freed via the `drop` function as well. When you assign a completely\nnew value to an existing variable, Rust will call `drop` and free the original\nvalue’s memory immediately. Consider this code, for example:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-04b-replacement-drop/src/main.rs:here}}\n```\n\nWe initially declare a variable `s` and bind it to a `String` with the value\n`\"hello\"`. Then, we immediately create a new `String` with the value `\"ahoy\"`\nand assign it to `s`. At this point, nothing is referring to the original value\non the heap at all. Figure 4-5 illustrates the stack and heap data now:\n\n<img alt=\"One table representing the string value on the stack, pointing to\nthe second piece of string data (ahoy) on the heap, with the original string\ndata (hello) grayed out because it cannot be accessed anymore.\"\nsrc=\"img/trpl04-05.svg\" class=\"center\" style=\"width: 50%;\" />\n\n<span class=\"caption\">Figure 4-5: The representation in memory after the initial\nvalue has been replaced in its entirety</span>"
+  },
+  {
+    "id": "rust-book-21",
+    "sourceId": "rust-book",
+    "section": "Scope and Assignment",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#scope-and-assignment",
+    "text": "The original string thus immediately goes out of scope. Rust will run the `drop`\nfunction on it and its memory will be freed right away. When we print the value\nat the end, it will be `\"ahoy, world!\"`.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"ways-variables-and-data-interact-clone\"></a>"
+  },
+  {
+    "id": "rust-book-22",
+    "sourceId": "rust-book",
+    "section": "Variables and Data Interacting with Clone",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-clone",
+    "text": "If we _do_ want to deeply copy the heap data of the `String`, not just the\nstack data, we can use a common method called `clone`. We’ll discuss method\nsyntax in Chapter 5, but because methods are a common feature in many\nprogramming languages, you’ve probably seen them before.\n\nHere’s an example of the `clone` method in action:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-05-clone/src/main.rs:here}}\n```\n\nThis works just fine and explicitly produces the behavior shown in Figure 4-3,\nwhere the heap data _does_ get copied.\n\nWhen you see a call to `clone`, you know that some arbitrary code is being\nexecuted and that code may be expensive. It’s a visual indicator that something\ndifferent is going on."
+  },
+  {
+    "id": "rust-book-23",
+    "sourceId": "rust-book",
+    "section": "Stack-Only Data: Copy",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#stack-only-data-copy",
+    "text": "There’s another wrinkle we haven’t talked about yet. This code using\nintegers—part of which was shown in Listing 4-2—works and is valid:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-06-copy/src/main.rs:here}}\n```\n\nBut this code seems to contradict what we just learned: We don’t have a call to\n`clone`, but `x` is still valid and wasn’t moved into `y`.\n\nThe reason is that types such as integers that have a known size at compile\ntime are stored entirely on the stack, so copies of the actual values are quick\nto make. That means there’s no reason we would want to prevent `x` from being\nvalid after we create the variable `y`. In other words, there’s no difference\nbetween deep and shallow copying here, so calling `clone` wouldn’t do anything\ndifferent from the usual shallow copying, and we can leave it out."
+  },
+  {
+    "id": "rust-book-24",
+    "sourceId": "rust-book",
+    "section": "Stack-Only Data: Copy",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#stack-only-data-copy",
+    "text": "Rust has a special annotation called the `Copy` trait that we can place on\ntypes that are stored on the stack, as integers are (we’ll talk more about\ntraits in [Chapter 10][traits]<!-- ignore -->). If a type implements the `Copy`\ntrait, variables that use it do not move, but rather are trivially copied,\nmaking them still valid after assignment to another variable.\n\nRust won’t let us annotate a type with `Copy` if the type, or any of its parts,\nhas implemented the `Drop` trait. If the type needs something special to happen\nwhen the value goes out of scope and we add the `Copy` annotation to that type,\nwe’ll get a compile-time error. To learn about how to add the `Copy` annotation\nto your type to implement the trait, see [“Derivable\nTraits”][derivable-traits]<!-- ignore --> in Appendix C.\n\nSo, what types implement the `Copy` trait? You can check the documentation for\nthe given type to be sure, but as a general rule, any group of simple scalar\nvalues can implement `Copy`, and nothing that requires allocation or is some\nform of resource can implement `Copy`. Here are some of the types that\nimplement `Copy`:"
+  },
+  {
+    "id": "rust-book-25",
+    "sourceId": "rust-book",
+    "section": "Stack-Only Data: Copy",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#stack-only-data-copy",
+    "text": "- All the integer types, such as `u32`.\n- The Boolean type, `bool`, with values `true` and `false`.\n- All the floating-point types, such as `f64`.\n- The character type, `char`.\n- Tuples, if they only contain types that also implement `Copy`. For example,\n  `(i32, i32)` implements `Copy`, but `(i32, String)` does not."
+  },
+  {
+    "id": "rust-book-26",
+    "sourceId": "rust-book",
+    "section": "Ownership and Functions",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#ownership-and-functions",
+    "text": "The mechanics of passing a value to a function are similar to those when\nassigning a value to a variable. Passing a variable to a function will move or\ncopy, just as assignment does. Listing 4-3 has an example with some annotations\nshowing where variables go into and out of scope.\n\n<Listing number=\"4-3\" file-name=\"src/main.rs\" caption=\"Functions with ownership and scope annotated\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-03/src/main.rs}}\n```\n\n</Listing>\n\nIf we tried to use `s` after the call to `takes_ownership`, Rust would throw a\ncompile-time error. These static checks protect us from mistakes. Try adding\ncode to `main` that uses `s` and `x` to see where you can use them and where\nthe ownership rules prevent you from doing so."
+  },
+  {
+    "id": "rust-book-27",
+    "sourceId": "rust-book",
+    "section": "Return Values and Scope",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#return-values-and-scope",
+    "text": "Returning values can also transfer ownership. Listing 4-4 shows an example of a\nfunction that returns some value, with similar annotations as those in Listing\n4-3.\n\n<Listing number=\"4-4\" file-name=\"src/main.rs\" caption=\"Transferring ownership of return values\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-04/src/main.rs}}\n```\n\n</Listing>\n\nThe ownership of a variable follows the same pattern every time: Assigning a\nvalue to another variable moves it. When a variable that includes data on the\nheap goes out of scope, the value will be cleaned up by `drop` unless ownership\nof the data has been moved to another variable.\n\nWhile this works, taking ownership and then returning ownership with every\nfunction is a bit tedious. What if we want to let a function use a value but\nnot take ownership? It’s quite annoying that anything we pass in also needs to\nbe passed back if we want to use it again, in addition to any data resulting\nfrom the body of the function that we might want to return as well.\n\nRust does let us return multiple values using a tuple, as shown in Listing 4-5."
+  },
+  {
+    "id": "rust-book-28",
+    "sourceId": "rust-book",
+    "section": "Return Values and Scope",
+    "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#return-values-and-scope",
+    "text": "<Listing number=\"4-5\" file-name=\"src/main.rs\" caption=\"Returning ownership of parameters\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-05/src/main.rs}}\n```\n\n</Listing>\n\nBut this is too much ceremony and a lot of work for a concept that should be\ncommon. Luckily for us, Rust has a feature for using a value without\ntransferring ownership: references.\n\n[data-types]: ch03-02-data-types.html#data-types\n[ch8]: ch08-02-strings.html\n[traits]: ch10-02-traits.html\n[derivable-traits]: appendix-03-derivable-traits.html\n[methods]: ch05-03-method-syntax.html#methods\n[paths-module-tree]: ch07-03-paths-for-referring-to-an-item-in-the-module-tree.html"
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "References and Borrowing",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#references-and-borrowing",
+    "text": "The issue with the tuple code in Listing 4-5 is that we have to return the\n`String` to the calling function so that we can still use the `String` after\nthe call to `calculate_length`, because the `String` was moved into\n`calculate_length`. Instead, we can provide a reference to the `String` value.\nA reference is like a pointer in that it’s an address we can follow to access\nthe data stored at that address; that data is owned by some other variable.\nUnlike a pointer, a reference is guaranteed to point to a valid value of a\nparticular type for the life of that reference.\n\nHere is how you would define and use a `calculate_length` function that has a\nreference to an object as a parameter instead of taking ownership of the value:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-07-reference/src/main.rs:all}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "References and Borrowing",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#references-and-borrowing",
+    "text": "First, notice that all the tuple code in the variable declaration and the\nfunction return value is gone. Second, note that we pass `&s1` into\n`calculate_length` and, in its definition, we take `&String` rather than\n`String`. These ampersands represent references, and they allow you to refer to\nsome value without taking ownership of it. Figure 4-6 depicts this concept.\n\n<img alt=\"Three tables: the table for s contains only a pointer to the table\nfor s1. The table for s1 contains the stack data for s1 and points to the\nstring data on the heap.\" src=\"img/trpl04-06.svg\" class=\"center\" />\n\n<span class=\"caption\">Figure 4-6: A diagram of `&String` `s` pointing at\n`String` `s1`</span>\n\n> Note: The opposite of referencing by using `&` is _dereferencing_, which is\n> accomplished with the dereference operator, `*`. We’ll see some uses of the\n> dereference operator in Chapter 8 and discuss details of dereferencing in\n> Chapter 15.\n\nLet’s take a closer look at the function call here:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-07-reference/src/main.rs:here}}\n```"
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "References and Borrowing",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#references-and-borrowing",
+    "text": "The `&s1` syntax lets us create a reference that _refers_ to the value of `s1`\nbut does not own it. Because the reference does not own it, the value it points\nto will not be dropped when the reference stops being used.\n\nLikewise, the signature of the function uses `&` to indicate that the type of\nthe parameter `s` is a reference. Let’s add some explanatory annotations:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-08-reference-with-annotations/src/main.rs:here}}\n```\n\nThe scope in which the variable `s` is valid is the same as any function\nparameter’s scope, but the value pointed to by the reference is not dropped\nwhen `s` stops being used, because `s` doesn’t have ownership. When functions\nhave references as parameters instead of the actual values, we won’t need to\nreturn the values in order to give back ownership, because we never had\nownership.\n\nWe call the action of creating a reference _borrowing_. As in real life, if a\nperson owns something, you can borrow it from them. When you’re done, you have\nto give it back. You don’t own it."
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "References and Borrowing",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#references-and-borrowing",
+    "text": "So, what happens if we try to modify something we’re borrowing? Try the code in\nListing 4-6. Spoiler alert: It doesn’t work!\n\n<Listing number=\"4-6\" file-name=\"src/main.rs\" caption=\"Attempting to modify a borrowed value\">\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-06/src/main.rs}}\n```\n\n</Listing>\n\nHere’s the error:\n\n```console\n{{#include ../listings/ch04-understanding-ownership/listing-04-06/output.txt}}\n```\n\nJust as variables are immutable by default, so are references. We’re not\nallowed to modify something we have a reference to."
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "Mutable References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references",
+    "text": "We can fix the code from Listing 4-6 to allow us to modify a borrowed value\nwith just a few small tweaks that use, instead, a _mutable reference_:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-09-fixes-listing-04-06/src/main.rs}}\n```\n\n</Listing>\n\nFirst, we change `s` to be `mut`. Then, we create a mutable reference with\n`&mut s` where we call the `change` function and update the function signature\nto accept a mutable reference with `some_string: &mut String`. This makes it\nvery clear that the `change` function will mutate the value it borrows.\n\nMutable references have one big restriction: If you have a mutable reference to\na value, you can have no other references to that value. This code that\nattempts to create two mutable references to `s` will fail:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-10-multiple-mut-not-allowed/src/main.rs:here}}\n```\n\n</Listing>\n\nHere’s the error:\n\n```console\n{{#include ../listings/ch04-understanding-ownership/no-listing-10-multiple-mut-not-allowed/output.txt}}\n```"
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Mutable References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references",
+    "text": "This error says that this code is invalid because we cannot borrow `s` as\nmutable more than once at a time. The first mutable borrow is in `r1` and must\nlast until it’s used in the `println!`, but between the creation of that\nmutable reference and its usage, we tried to create another mutable reference\nin `r2` that borrows the same data as `r1`.\n\nThe restriction preventing multiple mutable references to the same data at the\nsame time allows for mutation but in a very controlled fashion. It’s something\nthat new Rustaceans struggle with because most languages let you mutate\nwhenever you’d like. The benefit of having this restriction is that Rust can\nprevent data races at compile time. A _data race_ is similar to a race\ncondition and happens when these three behaviors occur:\n\n- Two or more pointers access the same data at the same time.\n- At least one of the pointers is being used to write to the data.\n- There’s no mechanism being used to synchronize access to the data.\n\nData races cause undefined behavior and can be difficult to diagnose and fix\nwhen you’re trying to track them down at runtime; Rust prevents this problem by\nrefusing to compile code with data races!"
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "Mutable References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references",
+    "text": "As always, we can use curly brackets to create a new scope, allowing for\nmultiple mutable references, just not _simultaneous_ ones:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-11-muts-in-separate-scopes/src/main.rs:here}}\n```\n\nRust enforces a similar rule for combining mutable and immutable references.\nThis code results in an error:\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-12-immutable-and-mutable-not-allowed/src/main.rs:here}}\n```\n\nHere’s the error:\n\n```console\n{{#include ../listings/ch04-understanding-ownership/no-listing-12-immutable-and-mutable-not-allowed/output.txt}}\n```\n\nWhew! We _also_ cannot have a mutable reference while we have an immutable one\nto the same value.\n\nUsers of an immutable reference don’t expect the value to suddenly change out\nfrom under them! However, multiple immutable references are allowed because no\none who is just reading the data has the ability to affect anyone else’s\nreading of the data."
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "Mutable References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references",
+    "text": "Note that a reference’s scope starts from where it is introduced and continues\nthrough the last time that reference is used. For instance, this code will\ncompile because the last usage of the immutable references is in the `println!`,\nbefore the mutable reference is introduced:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-13-reference-scope-ends/src/main.rs:here}}\n```\n\nThe scopes of the immutable references `r1` and `r2` end after the `println!`\nwhere they are last used, which is before the mutable reference `r3` is\ncreated. These scopes don’t overlap, so this code is allowed: The compiler can\ntell that the reference is no longer being used at a point before the end of\nthe scope.\n\nEven though borrowing errors may be frustrating at times, remember that it’s\nthe Rust compiler pointing out a potential bug early (at compile time rather\nthan at runtime) and showing you exactly where the problem is. Then, you don’t\nhave to track down why your data isn’t what you thought it was."
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "Dangling References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#dangling-references",
+    "text": "In languages with pointers, it’s easy to erroneously create a _dangling\npointer_—a pointer that references a location in memory that may have been\ngiven to someone else—by freeing some memory while preserving a pointer to that\nmemory. In Rust, by contrast, the compiler guarantees that references will\nnever be dangling references: If you have a reference to some data, the\ncompiler will ensure that the data will not go out of scope before the\nreference to the data does.\n\nLet’s try to create a dangling reference to see how Rust prevents them with a\ncompile-time error:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-14-dangling-reference/src/main.rs}}\n```\n\n</Listing>\n\nHere’s the error:\n\n```console\n{{#include ../listings/ch04-understanding-ownership/no-listing-14-dangling-reference/output.txt}}\n```\n\nThis error message refers to a feature we haven’t covered yet: lifetimes. We’ll\ndiscuss lifetimes in detail in Chapter 10. But, if you disregard the parts\nabout lifetimes, the message does contain the key to why this code is a problem:"
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "Dangling References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#dangling-references",
+    "text": "```text\nthis function's return type contains a borrowed value, but there is no value\nfor it to be borrowed from\n```\n\nLet’s take a closer look at exactly what’s happening at each stage of our\n`dangle` code:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust,ignore,does_not_compile\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-15-dangling-reference-annotated/src/main.rs:here}}\n```\n\n</Listing>\n\nBecause `s` is created inside `dangle`, when the code of `dangle` is finished,\n`s` will be deallocated. But we tried to return a reference to it. That means\nthis reference would be pointing to an invalid `String`. That’s no good! Rust\nwon’t let us do this.\n\nThe solution here is to return the `String` directly:\n\n```rust\n{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-16-no-dangle/src/main.rs:here}}\n```\n\nThis works without any problems. Ownership is moved out, and nothing is\ndeallocated."
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "The Rules of References",
+    "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#the-rules-of-references",
+    "text": "Let’s recap what we’ve discussed about references:\n\n- At any given time, you can have _either_ one mutable reference _or_ any\n  number of immutable references.\n- References must always be valid.\n\nNext, we’ll look at a different kind of reference: slices."
+  },
+  {
+    "id": "rust-book-0",
+    "sourceId": "rust-book",
+    "section": "Defining and Instantiating Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-and-instantiating-structs",
+    "text": "Structs are similar to tuples, discussed in [“The Tuple Type”][tuples]<!--\nignore --> section, in that both hold multiple related values. Like tuples, the\npieces of a struct can be different types. Unlike with tuples, in a struct\nyou’ll name each piece of data so it’s clear what the values mean. Adding these\nnames means that structs are more flexible than tuples: You don’t have to rely\non the order of the data to specify or access the values of an instance.\n\nTo define a struct, we enter the keyword `struct` and name the entire struct. A\nstruct’s name should describe the significance of the pieces of data being\ngrouped together. Then, inside curly brackets, we define the names and types of\nthe pieces of data, which we call _fields_. For example, Listing 5-1 shows a\nstruct that stores information about a user account.\n\n<Listing number=\"5-1\" file-name=\"src/main.rs\" caption=\"A `User` struct definition\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-01/src/main.rs:here}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-1",
+    "sourceId": "rust-book",
+    "section": "Defining and Instantiating Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-and-instantiating-structs",
+    "text": "To use a struct after we’ve defined it, we create an _instance_ of that struct\nby specifying concrete values for each of the fields. We create an instance by\nstating the name of the struct and then add curly brackets containing _`key:\nvalue`_ pairs, where the keys are the names of the fields and the values are the\ndata we want to store in those fields. We don’t have to specify the fields in\nthe same order in which we declared them in the struct. In other words, the\nstruct definition is like a general template for the type, and instances fill\nin that template with particular data to create values of the type. For\nexample, we can declare a particular user as shown in Listing 5-2.\n\n<Listing number=\"5-2\" file-name=\"src/main.rs\" caption=\"Creating an instance of the `User` struct\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-02/src/main.rs:here}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-2",
+    "sourceId": "rust-book",
+    "section": "Defining and Instantiating Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-and-instantiating-structs",
+    "text": "To get a specific value from a struct, we use dot notation. For example, to\naccess this user’s email address, we use `user1.email`. If the instance is\nmutable, we can change a value by using the dot notation and assigning into a\nparticular field. Listing 5-3 shows how to change the value in the `email`\nfield of a mutable `User` instance.\n\n<Listing number=\"5-3\" file-name=\"src/main.rs\" caption=\"Changing the value in the `email` field of a `User` instance\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-03/src/main.rs:here}}\n```\n\n</Listing>\n\nNote that the entire instance must be mutable; Rust doesn’t allow us to mark\nonly certain fields as mutable. As with any expression, we can construct a new\ninstance of the struct as the last expression in the function body to\nimplicitly return that new instance.\n\nListing 5-4 shows a `build_user` function that returns a `User` instance with\nthe given email and username. The `active` field gets the value `true`, and the\n`sign_in_count` gets a value of `1`.\n\n<Listing number=\"5-4\" file-name=\"src/main.rs\" caption=\"A `build_user` function that takes an email and username and returns a `User` instance\">"
+  },
+  {
+    "id": "rust-book-3",
+    "sourceId": "rust-book",
+    "section": "Defining and Instantiating Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-and-instantiating-structs",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-04/src/main.rs:here}}\n```\n\n</Listing>\n\nIt makes sense to name the function parameters with the same name as the struct\nfields, but having to repeat the `email` and `username` field names and\nvariables is a bit tedious. If the struct had more fields, repeating each name\nwould get even more annoying. Luckily, there’s a convenient shorthand!\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"using-the-field-init-shorthand-when-variables-and-fields-have-the-same-name\"></a>"
+  },
+  {
+    "id": "rust-book-4",
+    "sourceId": "rust-book",
+    "section": "Using the Field Init Shorthand",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-the-field-init-shorthand",
+    "text": "Because the parameter names and the struct field names are exactly the same in\nListing 5-4, we can use the _field init shorthand_ syntax to rewrite\n`build_user` so that it behaves exactly the same but doesn’t have the\nrepetition of `username` and `email`, as shown in Listing 5-5.\n\n<Listing number=\"5-5\" file-name=\"src/main.rs\" caption=\"A `build_user` function that uses field init shorthand because the `username` and `email` parameters have the same name as struct fields\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-05/src/main.rs:here}}\n```\n\n</Listing>\n\nHere, we’re creating a new instance of the `User` struct, which has a field\nnamed `email`. We want to set the `email` field’s value to the value in the\n`email` parameter of the `build_user` function. Because the `email` field and\nthe `email` parameter have the same name, we only need to write `email` rather\nthan `email: email`.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"creating-instances-from-other-instances-with-struct-update-syntax\"></a>"
+  },
+  {
+    "id": "rust-book-5",
+    "sourceId": "rust-book",
+    "section": "Creating Instances with Struct Update Syntax",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-instances-with-struct-update-syntax",
+    "text": "It’s often useful to create a new instance of a struct that includes most of\nthe values from another instance of the same type, but changes some of them.\nYou can do this using struct update syntax.\n\nFirst, in Listing 5-6 we show how to create a new `User` instance in `user2` in\nthe regular way, without the update syntax. We set a new value for `email` but\notherwise use the same values from `user1` that we created in Listing 5-2.\n\n<Listing number=\"5-6\" file-name=\"src/main.rs\" caption=\"Creating a new `User` instance using all but one of the values from `user1`\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-06/src/main.rs:here}}\n```\n\n</Listing>\n\nUsing struct update syntax, we can achieve the same effect with less code, as\nshown in Listing 5-7. The syntax `..` specifies that the remaining fields not\nexplicitly set should have the same value as the fields in the given instance.\n\n<Listing number=\"5-7\" file-name=\"src/main.rs\" caption=\"Using struct update syntax to set a new `email` value for a `User` instance but to use the rest of the values from `user1`\">"
+  },
+  {
+    "id": "rust-book-6",
+    "sourceId": "rust-book",
+    "section": "Creating Instances with Struct Update Syntax",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-instances-with-struct-update-syntax",
+    "text": "```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/listing-05-07/src/main.rs:here}}\n```\n\n</Listing>\n\nThe code in Listing 5-7 also creates an instance in `user2` that has a\ndifferent value for `email` but has the same values for the `username`,\n`active`, and `sign_in_count` fields from `user1`. The `..user1` must come last\nto specify that any remaining fields should get their values from the\ncorresponding fields in `user1`, but we can choose to specify values for as\nmany fields as we want in any order, regardless of the order of the fields in\nthe struct’s definition."
+  },
+  {
+    "id": "rust-book-7",
+    "sourceId": "rust-book",
+    "section": "Creating Instances with Struct Update Syntax",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-instances-with-struct-update-syntax",
+    "text": "Note that the struct update syntax uses `=` like an assignment; this is because\nit moves the data, just as we saw in the [“Variables and Data Interacting with\nMove”][move]<!-- ignore --> section. In this example, we can no longer use\n`user1` after creating `user2` because the `String` in the `username` field of\n`user1` was moved into `user2`. If we had given `user2` new `String` values for\nboth `email` and `username`, and thus only used the `active` and `sign_in_count`\nvalues from `user1`, then `user1` would still be valid after creating `user2`.\nBoth `active` and `sign_in_count` are types that implement the `Copy` trait, so\nthe behavior we discussed in the [“Stack-Only Data: Copy”][copy]<!-- ignore -->\nsection would apply. We can also still use `user1.email` in this example,\nbecause its value was not moved out of `user1`.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"using-tuple-structs-without-named-fields-to-create-different-types\"></a>"
+  },
+  {
+    "id": "rust-book-8",
+    "sourceId": "rust-book",
+    "section": "Creating Different Types with Tuple Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-different-types-with-tuple-structs",
+    "text": "Rust also supports structs that look similar to tuples, called _tuple structs_.\nTuple structs have the added meaning the struct name provides but don’t have\nnames associated with their fields; rather, they just have the types of the\nfields. Tuple structs are useful when you want to give the whole tuple a name\nand make the tuple a different type from other tuples, and when naming each\nfield as in a regular struct would be verbose or redundant.\n\nTo define a tuple struct, start with the `struct` keyword and the struct name\nfollowed by the types in the tuple. For example, here we define and use two\ntuple structs named `Color` and `Point`:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/no-listing-01-tuple-structs/src/main.rs}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-9",
+    "sourceId": "rust-book",
+    "section": "Creating Different Types with Tuple Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-different-types-with-tuple-structs",
+    "text": "Note that the `black` and `origin` values are different types because they’re\ninstances of different tuple structs. Each struct you define is its own type,\neven though the fields within the struct might have the same types. For\nexample, a function that takes a parameter of type `Color` cannot take a\n`Point` as an argument, even though both types are made up of three `i32`\nvalues. Otherwise, tuple struct instances are similar to tuples in that you can\ndestructure them into their individual pieces, and you can use a `.` followed\nby the index to access an individual value. Unlike tuples, tuple structs\nrequire you to name the type of the struct when you destructure them. For\nexample, we would write `let Point(x, y, z) = origin;` to destructure the\nvalues in the `origin` point into variables named `x`, `y`, and `z`.\n\n<!-- Old headings. Do not remove or links may break. -->\n\n<a id=\"unit-like-structs-without-any-fields\"></a>"
+  },
+  {
+    "id": "rust-book-10",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "You can also define structs that don’t have any fields! These are called\n_unit-like structs_ because they behave similarly to `()`, the unit type that\nwe mentioned in [“The Tuple Type”][tuples]<!-- ignore --> section. Unit-like\nstructs can be useful when you need to implement a trait on some type but don’t\nhave any data that you want to store in the type itself. We’ll discuss traits\nin Chapter 10. Here’s an example of declaring and instantiating a unit struct\nnamed `AlwaysEqual`:\n\n<Listing file-name=\"src/main.rs\">\n\n```rust\n{{#rustdoc_include ../listings/ch05-using-structs-to-structure-related-data/no-listing-04-unit-like-structs/src/main.rs}}\n```\n\n</Listing>"
+  },
+  {
+    "id": "rust-book-11",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "To define `AlwaysEqual`, we use the `struct` keyword, the name we want, and\nthen a semicolon. No need for curly brackets or parentheses! Then, we can get\nan instance of `AlwaysEqual` in the `subject` variable in a similar way: using\nthe name we defined, without any curly brackets or parentheses. Imagine that\nlater we’ll implement behavior for this type such that every instance of\n`AlwaysEqual` is always equal to every instance of any other type, perhaps to\nhave a known result for testing purposes. We wouldn’t need any data to\nimplement that behavior! You’ll see in Chapter 10 how to define traits and\nimplement them on any type, including unit-like structs."
+  },
+  {
+    "id": "rust-book-12",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "> ### Ownership of Struct Data\n>\n> In the `User` struct definition in Listing 5-1, we used the owned `String`\n> type rather than the `&str` string slice type. This is a deliberate choice\n> because we want each instance of this struct to own all of its data and for\n> that data to be valid for as long as the entire struct is valid. >\n> It’s also possible for structs to store references to data owned by something\n> else, but to do so requires the use of _lifetimes_, a Rust feature that we’ll\n> discuss in Chapter 10. Lifetimes ensure that the data referenced by a struct\n> is valid for as long as the struct is."
+  },
+  {
+    "id": "rust-book-13",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "Let’s say you try to store a reference\n> in a struct without specifying lifetimes, like the following in\n> *src/main.rs*; this won’t work:\n>\n> <Listing file-name=\"src/main.rs\">\n>\n> <!-- CAN'T EXTRACT SEE https://github.com/rust-lang/mdBook/issues/1127 -->\n>\n> ```rust,ignore,does_not_compile\n> struct User {\n>     active: bool,\n>     username: &str,\n>     email: &str,\n>     sign_in_count: u64,\n> }\n>\n> fn main() {\n>     let user1 = User {\n>         active: true,\n>         username: \"someusername123\",\n>         email: \"someone@example.com\",\n>         sign_in_count: 1,\n>     };\n> }\n> ```\n>\n> </Listing>\n>\n> The compiler will complain that it needs lifetime specifiers:\n>\n> ```console\n> $ cargo run\n>    Compiling structs v0.1.0 (file:///projects/structs)\n> error[E0106]: missing lifetime specifier\n>  --> src/main.rs:3:15\n>   |\n> 3 |     username: &str,\n>   |               ^ expected named lifetime parameter\n>   |\n> help: consider introducing a named lifetime parameter\n>   |\n> 1 ~ struct User<'a> {\n> 2 |     active: bool,\n> 3 ~     username: &'a str,\n>   |\n>\n> error[E0106]: missing lifetime specifier\n>  --> src/main.rs:4:12\n>   |\n> 4 |     email: &str,\n>   |            ^ expected named lifet"
+  },
+  {
+    "id": "rust-book-14",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "ime parameter\n>   |\n> help: consider introducing a named lifetime parameter\n>   |\n> 1 ~ struct User<'a> {\n> 2 |     active: bool,\n> 3 |     username: &str,\n> 4 ~     email: &'a str,\n>   |\n>\n> For more information about this error, try `rustc --explain E0106`."
+  },
+  {
+    "id": "rust-book-15",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "> error: could not compile `structs` (bin \"structs\") due to 2 previous errors\n> ```\n>\n> In Chapter 10, we’ll discuss how to fix these errors so that you can store\n> references in structs, but for now, we’ll fix errors like these using owned\n> types like `String` instead of references like `&str`."
+  },
+  {
+    "id": "rust-book-16",
+    "sourceId": "rust-book",
+    "section": "Defining Unit-Like Structs",
+    "url": "https://doc.rust-lang.org/book/ch05-01-defining-structs.html#defining-unit-like-structs",
+    "text": "<!-- manual-regeneration\nfor the error above\nafter running update-rustc.sh:\npbcopy < listings/ch05-using-structs-to-structure-related-data/no-listing-02-reference-in-struct/output.txt\npaste above\nadd `> ` before every line -->\n\n[tuples]: ch03-02-data-types.html#the-tuple-type\n[move]: ch04-01-what-is-ownership.html#variables-and-data-interacting-with-move\n[copy]: ch04-01-what-is-ownership.html#stack-only-data-copy"
+  }
+]

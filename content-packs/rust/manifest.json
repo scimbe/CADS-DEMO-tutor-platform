@@ -1,0 +1,11 @@
+{
+  "_comment": "Curated chapter list for the ownership -> borrowing -> structs milestone (see the plan artifact). Deliberately small for the v0 proof-of-concept - extending this to the full milestone map is mechanical, not a redesign.",
+  "sourceId": "rust-book",
+  "baseRawUrl": "https://raw.githubusercontent.com/rust-lang/book/main/src/",
+  "docBaseUrl": "https://doc.rust-lang.org/book/",
+  "chapters": [
+    { "file": "ch04-01-what-is-ownership.md", "docPath": "ch04-01-what-is-ownership.html" },
+    { "file": "ch04-02-references-and-borrowing.md", "docPath": "ch04-02-references-and-borrowing.html" },
+    { "file": "ch05-01-defining-structs.md", "docPath": "ch05-01-defining-structs.html" }
+  ]
+}

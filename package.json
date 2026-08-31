@@ -1,0 +1,21 @@
+{
+  "name": "@cads/tutor-platform",
+  "version": "0.1.0",
+  "description": "Shared grounding/citation engine for CaDS Tutor - reference-sourced content for both the Rust and Firmware tutors, never LLM-generated language facts.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "ingest": "tsc && node dist/cli/ingest.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  }
+}

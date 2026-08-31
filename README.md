@@ -112,8 +112,8 @@ a bad credential, wasn't one), so that mistake fails loudly here instead of quie
 
 | Pack | Sources | Status |
 |---|---|---|
-| `content-packs/rust/` | The Rust Book, Rust by Example, Rustlings, Comprehensive Rust, The Embedded Rust Book — all MIT/Apache-2.0/CC-BY-4.0, verified before use | 3 chapters ingested (ownership, borrowing, structs) as a proof of concept; extending to the full milestone map is mechanical |
-| `content-packs/firmware/` | This project's own docs (MIT-licensed, cads-zero itself) | Not yet ingested |
+| `content-packs/rust/` | The Rust Book (MIT/Apache-2.0), verified before use | 15 sections ingested (270 chunks) — ownership, references/borrowing, slices, structs, enums, match, if-let, vectors, strings, hash maps, panic/Result, generics, traits, lifetimes. A real, coherent core-language course (not the whole book — closures/iterators, smart pointers, concurrency, macros, async, unsafe are not yet covered), calibrated and end-to-end verified against the live LLM endpoint |
+| `content-packs/firmware/` | This project's own docs (MIT-licensed, cads-zero itself) | 14 pages ingested (145 chunks) — vscode-setup, build, flash, debug, board-test, first-build/first-gate tutorials, hal/memory-map/module-layout reference, toolchain/clean-room explanation, SAFETY, HARDWARE. An onboarding-focused set (get a student to a real build/flash/debug loop), calibrated and end-to-end verified |
 
 **On RM0090 (STM32 reference manual)**: it's copyrighted by STMicroelectronics. Freely downloadable
 for reference, but not something to bulk-copy verbatim into a public repo without checking
@@ -131,8 +131,9 @@ endpoint, and a real interaction written to `TutorMemory`, not mocked at any sta
 (the original grounding suite plus `TutorSession`'s three-case coverage: refused / llm-error /
 answer), a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
 
-Still not done: it isn't wired into either tutor extension yet, `recallSimilarInteractions` is
-implemented but deliberately unused (see `session.ts` above), and the BM25 relevance threshold still
-needs per-content-pack calibration, not a copy-pasted default (see above). See the
+Still not done: the VS Code extension wiring (CaDS Tutor identity, active observation of what a
+student is doing in the editor) lives in `CADS-DEMO-firmware-lab`'s own extension code, not here, and
+is in progress there. `recallSimilarInteractions` is implemented but deliberately unused (see
+`session.ts` above). See the
 [full platform plan](https://claude.ai/code/artifact/67493cd9-2c7e-4922-85e4-256d5a7f7986) for what
 comes next and what's still an open decision.

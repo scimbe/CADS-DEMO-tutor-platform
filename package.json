@@ -9,7 +9,11 @@
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
-    "ingest": "tsc && node dist/cli/ingest.js"
+    "ingest": "tsc && node dist/cli/ingest.js",
+    "tutor": "tsc && node --env-file=.env dist/cli/tutor.js"
+  },
+  "dependencies": {
+    "student-memory": "github:scimbe/CADS-DEMO-student-memory"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

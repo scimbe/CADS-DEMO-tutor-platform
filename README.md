@@ -36,6 +36,32 @@ reference docs (real, licensed) --chunk--> Chunk[] --index--> Retriever --search
 - **`ground.ts`** — `GroundingEngine`: ties a `Retriever` to a relevance threshold and produces
   `GroundedAnswer`s, plus `buildGroundedPrompt()`, which formats retrieved chunks (with source,
   license, section) into the *only* material an LLM is allowed to answer from.
+- **`session.ts`** — `TutorSession`: orchestrates one real student turn — grounding, then (only if
+  grounded) the LLM explanation, then (only if the LLM call succeeded) recording the interaction to
+  memory. Each gate is real, not cosmetic: an ungrounded question never reaches the LLM at all, and a
+  failed LLM call never gets written to `TutorMemory` as though it were a real exchange. The result is
+  a discriminated `TutorTurnResult`:
+
+  ```ts
+  type TutorTurnResult =
+    | { kind: "refused"; reason: string }
+    | { kind: "llm-error"; citations: RetrievedChunk[]; message: string }
+    | { kind: "answer"; text: string; citations: RetrievedChunk[] };
+  ```
+
+  so a caller can `switch` on `kind` and handle "never asked the LLM", "asked and it failed", and "got
+  a real answer" as three distinct, type-checked cases instead of inspecting error strings or null
+  fields. `llm-error` still carries the citations, so a student sees the reference material even when
+  the model itself is down.
+
+  `TutorMemory` (`memory.ts`, wrapping [`CADS-DEMO-student-memory`](https://github.com/scimbe/CADS-DEMO-student-memory))
+  exposes both `recordInteraction` and `recallSimilarInteractions`, but `TutorSession` only calls the
+  former. That's deliberate, not an oversight: folding prior interactions into the grounded prompt is
+  a real design decision — how much history, how stale it's allowed to be, whether conversational
+  recall could ever get treated as a fact rather than context — that hasn't been made yet. Wiring it
+  in now would have been a guess dressed up as a feature. `recallSimilarInteractions` is implemented
+  and available for whichever tutor extension wants it; `session.ts` deliberately doesn't call it
+  until that decision is made.
 
 ## A real, honest limitation found while building this
 
@@ -54,10 +80,33 @@ project's own firmware work never trusts an untested assumption.
 
 ```bash
 npm install
-npm test                                    # 12 tests, all against real logic, no LLM needed
+npm test                                    # 15 tests, all against real logic, no LLM needed
 npm run ingest -- content-packs/rust        # fetches real chapters from github.com/rust-lang/book
 npx tsc && node dist/cli/demo.js content-packs/rust "why do I need a reference instead of taking ownership"
 ```
+
+### Running a real tutor turn (grounding + LLM + memory)
+
+`src/cli/tutor.ts` drives the exact wiring a real tutor extension would use —
+`GroundingEngine` + `LlmClient` + `TutorMemory` through `TutorSession` — against a live LLM endpoint,
+not a mock:
+
+```bash
+npm run tutor -- content-packs/rust student-1 "why do I need a reference instead of taking ownership"
+```
+
+This needs a `.env` in the repo root (gitignored — never commit real credentials) with an
+OpenAI-chat-compatible endpoint, e.g. a [litellm](https://github.com/BerriAI/litellm) proxy:
+
+```
+TUTOR_LLM_BASE_URL=https://your-litellm-proxy.example.com
+TUTOR_LLM_API_KEY=your-api-key
+TUTOR_LLM_MODEL=your-model-name
+```
+
+`LlmClient` (`src/llm.ts`) refuses to construct with a non-`https://` base URL — a plain-http proxy
+URL already caused a real, hard-to-diagnose 401 in this project's own firmware-lab tutor (looked like
+a bad credential, wasn't one), so that mistake fails loudly here instead of quietly.
 
 ## Content packs
 
@@ -75,7 +124,15 @@ actually verified.
 
 ## Status
 
-Phase 0 (this repo) is real and tested, not a stub — 12 passing tests, a working ingestion pipeline
-against live upstream content, and a demonstrated grounded Q&A round trip. It is not yet wired into
-either tutor extension. See the [full platform plan](https://claude.ai/code/artifact/67493cd9-2c7e-4922-85e4-256d5a7f7986)
-for what comes next and what's still an open decision.
+This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
+grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
+real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 15 passing tests
+(the original grounding suite plus `TutorSession`'s three-case coverage: refused / llm-error /
+answer), a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
+
+Still not done: it isn't wired into either tutor extension yet, `recallSimilarInteractions` is
+implemented but deliberately unused (see `session.ts` above), and the BM25 relevance threshold still
+needs per-content-pack calibration, not a copy-pasted default (see above). See the
+[full platform plan](https://claude.ai/code/artifact/67493cd9-2c7e-4922-85e4-256d5a7f7986) for what
+comes next and what's still an open decision.

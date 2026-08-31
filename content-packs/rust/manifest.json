@@ -3,6 +3,8 @@
   "sourceId": "rust-book",
   "baseRawUrl": "https://raw.githubusercontent.com/rust-lang/book/main/src/",
   "docBaseUrl": "https://doc.rust-lang.org/book/",
+  "_relevanceThresholdRationale": "Calibrated against this pack's real score distribution (see README): good matches scored 6-11, an off-topic query that incidentally shared one word with an example scored 2.6-3.2.",
+  "relevanceThreshold": 5.0,
   "chapters": [
     { "file": "ch04-01-what-is-ownership.md", "docPath": "ch04-01-what-is-ownership.html" },
     { "file": "ch04-02-references-and-borrowing.md", "docPath": "ch04-02-references-and-borrowing.html" },

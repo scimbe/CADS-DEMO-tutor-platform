@@ -3,6 +3,8 @@
   "sourceId": "cads-zero-docs",
   "localRoot": "/Users/dev/Documents/git/cads-zero/docs/",
   "docBaseUrl": "https://scimbe.github.io/cads-zero/",
+  "_relevanceThresholdRationale": "Calibrated against this pack's real score distribution (not copy-pasted from the Rust pack's 5.0 - see README). Unlike the Rust Book corpus, this one didn't cleanly separate: 'what does the RAM budget script check' (not actually covered by this pack) scored 7.51 by incidentally matching the literal token 'RAM' in an unrelated flash-bank/.ramfunc chunk, which sits ABOVE a genuinely good match ('what is the memory map', 5.92). No single scalar threshold separates both cleanly - 8.0 was chosen to eliminate the confirmed false positive, accepting the known, deliberate trade-off of also refusing one borderline-legitimate query ('what modules make up this project', 7.60) rather than risk more RAM-budget-style false groundings. A real BM25 limitation on heterogeneous (prose+tables+code) corpora, not something this threshold alone fully solves.",
+  "relevanceThreshold": 8.0,
   "chapters": [
     { "file": "how-to/vscode-setup.md", "docPath": "how-to/vscode-setup/" },
     { "file": "how-to/build.md", "docPath": "how-to/build/" },

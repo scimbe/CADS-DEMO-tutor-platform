@@ -25,8 +25,10 @@ async function main() {
 
   const sources: Source[] = JSON.parse(readFileSync(path.join(packDir, "sources.json"), "utf-8"));
   const chunks: Chunk[] = JSON.parse(readFileSync(path.join(packDir, "index.json"), "utf-8"));
+  const manifest = JSON.parse(readFileSync(path.join(packDir, "manifest.json"), "utf-8"));
 
-  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold: 5.0 });
+  const relevanceThreshold = manifest.relevanceThreshold ?? 5.0;
+  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold });
   engine.loadSources(sources);
   engine.indexChunks(chunks);
 

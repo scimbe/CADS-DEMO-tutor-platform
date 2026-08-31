@@ -21,8 +21,14 @@ function main() {
 
   const sources: Source[] = JSON.parse(readFileSync(path.join(packDir, "sources.json"), "utf-8"));
   const chunks: Chunk[] = JSON.parse(readFileSync(path.join(packDir, "index.json"), "utf-8"));
+  const manifest = JSON.parse(readFileSync(path.join(packDir, "manifest.json"), "utf-8"));
 
-  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold: 5.0, topK: 3 });
+  // relevanceThreshold is per-pack, calibrated against that pack's own score
+  // distribution - see each manifest.json's _relevanceThresholdRationale and
+  // README's "A real, honest limitation" section. 5.0 is only a fallback for
+  // a pack that hasn't been calibrated yet, not a safe universal default.
+  const relevanceThreshold = manifest.relevanceThreshold ?? 5.0;
+  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold, topK: 3 });
   engine.loadSources(sources);
   engine.indexChunks(chunks);
 

@@ -6,8 +6,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepare": "tsc",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "ingest": "tsc && node dist/cli/ingest.js",
     "tutor": "tsc && node --env-file=.env dist/cli/tutor.js"

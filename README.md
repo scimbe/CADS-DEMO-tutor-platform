@@ -222,22 +222,33 @@ here, not three).
 
 `CurriculumGraph.computeFrontier(track, isSatisfied)` is the actual "what's next" query — it returns
 every objective in a track whose prerequisites are all satisfied and which isn't itself satisfied
-yet. `isSatisfied` is injected (not read from a real store yet): today a caller has to supply it;
-the backbone's mastery layer (deriving `isSatisfied` from a real `learning_event` history via
-`LearningEventStore`) is the next piece that makes this genuinely adaptive rather than just
-correctly modeled. Real, load-bearing test coverage: 10 tests including 4 run against the actual
-generated `content-packs/curriculum.json`, not synthetic fixtures — a broken chapter mapping or a
-cyclic edge fails a real test, not just a hand review.
+yet. `isSatisfied` is no longer injected as a stub — `mastery.ts`'s `createIsSatisfied(store, entityId)`
+backs it with a real, deterministic estimate over `LearningEventStore`: a recency-weighted,
+hint-tier-discounted average of each event's evidence score (an unaided `independent_success`
+counts fully; a hint-tier-3 `assisted_success` counts for roughly a fifth as much — a tier-3 answer
+is much weaker evidence of real understanding than an unaided one). No LLM in the loop anywhere in
+this calculation — the classifier stays a pure function over logged outcomes, per the Proactive
+Tutor Roadmap's own trust-boundary rule. `src/cli/frontier.ts` (`npm run frontier <track>
+<studentId>`) exercises the whole chain for real: real curriculum graph, real event store, real
+mastery estimate, real `computeFrontier` call — not just isolated unit tests of each piece.
+Verified live: a fresh student starts at the true root objective; after recording one real
+`independent_success` event, the frontier genuinely advances to the next legal objective. Real,
+load-bearing test coverage: 13 new tests for `mastery.ts` (including the exact case that caught a
+wrong assumption in the first draft — a single isolated event's estimate doesn't decay toward 0 in
+a vacuum, since this is a normalized weighted average, not a raw decaying score) plus the existing
+10 for `curriculum.ts`, 4 of which run against the real generated dataset.
 
 ## Status
 
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 49 passing tests
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 62 passing tests
 (the original grounding suite, `TutorSession`'s three-case coverage: refused / llm-error / answer,
-`LearningEventStore`, and `CurriculumGraph` including the real generated multi-track objective set),
-a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
+`LearningEventStore`, `CurriculumGraph` including the real generated multi-track objective set, and
+`mastery.ts`'s real `isSatisfied` implementation), a working ingestion pipeline against live
+upstream content, a verified `tutor` CLI turn, and a verified `frontier` CLI turn (curriculum graph
++ event store + mastery estimate, end to end, live).
 
 Still not done: the VS Code extension wiring (CaDS Tutor identity, active observation of what a
 student is doing in the editor) lives in `CADS-DEMO-firmware-lab`'s own extension code, not here, and

@@ -10,3 +10,4 @@ export * from "./stt.js";
 export * from "./stt-race.js";
 export * from "./learning-event.js";
 export * from "./curriculum.js";
+export * from "./mastery.js";

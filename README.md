@@ -201,14 +201,43 @@ therefore this project's own already-MIT-licensed docs, not the manual itself; s
 facts should cite the manual by section/URL rather than reproducing its text wholesale, until that's
 actually verified.
 
+## Curriculum objectives (adaptive sequencing)
+
+Grounding answers "what is true"; the curriculum graph answers "what's next". Every chapter in
+every content pack is now a real `CurriculumObjective` (see `curriculum.ts`) — 37 total (15
+firmware, 15 rust, 7 javascript) — each with a real prerequisite chain (hand-authored per track:
+Rust follows the Book's own chapter order, firmware puts SAFETY before flash/debug and groups
+reference material after the build step that makes it legible, JavaScript follows the MDN Guide's
+own sequence) and `sourceDocIds` pointing at the exact chunks that ground it — an objective with no
+source material is a construction-time error, not a runtime surprise (`CurriculumGraph`'s
+constructor throws).
+
+`content-packs/curriculum.json` is generated, not hand-typed: `scripts/gen-curriculum.py` reads each
+pack's `manifest.json` (chapter list) and `index.json` (indexed chunks), matches chunks to chapters
+by URL, and merges that with a hand-authored table of `(bloomLevel, statement, prerequisites)` per
+chapter. Re-run it after a content pack's `manifest.json` changes. `loadCurriculumObjectives()`
+loads the result into one `CurriculumGraph` spanning all tracks at once (objective ids are
+track-namespaced, so this is safe — see the function's own doc comment for why one graph is correct
+here, not three).
+
+`CurriculumGraph.computeFrontier(track, isSatisfied)` is the actual "what's next" query — it returns
+every objective in a track whose prerequisites are all satisfied and which isn't itself satisfied
+yet. `isSatisfied` is injected (not read from a real store yet): today a caller has to supply it;
+the backbone's mastery layer (deriving `isSatisfied` from a real `learning_event` history via
+`LearningEventStore`) is the next piece that makes this genuinely adaptive rather than just
+correctly modeled. Real, load-bearing test coverage: 10 tests including 4 run against the actual
+generated `content-packs/curriculum.json`, not synthetic fixtures — a broken chapter mapping or a
+cyclic edge fails a real test, not just a hand review.
+
 ## Status
 
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 32 passing tests
-(the original grounding suite plus `TutorSession`'s three-case coverage: refused / llm-error /
-answer), a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 49 passing tests
+(the original grounding suite, `TutorSession`'s three-case coverage: refused / llm-error / answer,
+`LearningEventStore`, and `CurriculumGraph` including the real generated multi-track objective set),
+a working ingestion pipeline against live upstream content, and a verified `tutor` CLI turn.
 
 Still not done: the VS Code extension wiring (CaDS Tutor identity, active observation of what a
 student is doing in the editor) lives in `CADS-DEMO-firmware-lab`'s own extension code, not here, and

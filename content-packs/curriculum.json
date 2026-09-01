@@ -1,0 +1,1065 @@
+{
+  "firmware": [
+    {
+      "id": "firmware-hardware",
+      "track": "firmware",
+      "unitId": "firmware-hardware",
+      "bloomLevel": "understand",
+      "statement": "Student can identify the ITSboard's real hardware components (STM32F429ZI, NUCLEO-F429ZI, ITS adapter, Waveshare 4\" shield) and how they connect.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9",
+        "cads-zero-docs-10",
+        "cads-zero-docs-11",
+        "cads-zero-docs-12",
+        "cads-zero-docs-13",
+        "cads-zero-docs-14",
+        "cads-zero-docs-15"
+      ],
+      "prerequisiteObjectiveIds": []
+    },
+    {
+      "id": "firmware-safety",
+      "track": "firmware",
+      "unitId": "firmware-safety",
+      "bloomLevel": "understand",
+      "statement": "Student can state the board's non-negotiable safety rules (protected pins, flash region, no mass-erase) before touching real hardware.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-hardware"
+      ]
+    },
+    {
+      "id": "firmware-how-to-vscode-setup",
+      "track": "firmware",
+      "unitId": "firmware-how-to-vscode-setup",
+      "bloomLevel": "understand",
+      "statement": "Student can get a working VS Code + toolchain setup for cads-zero from a clean checkout.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9",
+        "cads-zero-docs-10",
+        "cads-zero-docs-11",
+        "cads-zero-docs-12",
+        "cads-zero-docs-13",
+        "cads-zero-docs-14",
+        "cads-zero-docs-15",
+        "cads-zero-docs-16",
+        "cads-zero-docs-17",
+        "cads-zero-docs-18",
+        "cads-zero-docs-19",
+        "cads-zero-docs-20",
+        "cads-zero-docs-21",
+        "cads-zero-docs-22",
+        "cads-zero-docs-23",
+        "cads-zero-docs-24",
+        "cads-zero-docs-25",
+        "cads-zero-docs-26",
+        "cads-zero-docs-27",
+        "cads-zero-docs-28",
+        "cads-zero-docs-29",
+        "cads-zero-docs-30"
+      ],
+      "prerequisiteObjectiveIds": []
+    },
+    {
+      "id": "firmware-explanation-toolchain",
+      "track": "firmware",
+      "unitId": "firmware-explanation-toolchain",
+      "bloomLevel": "understand",
+      "statement": "Student can explain why this project uses this specific ARM toolchain and build setup.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9",
+        "cads-zero-docs-10",
+        "cads-zero-docs-11"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-vscode-setup"
+      ]
+    },
+    {
+      "id": "firmware-how-to-build",
+      "track": "firmware",
+      "unitId": "firmware-how-to-build",
+      "bloomLevel": "apply",
+      "statement": "Student can build cads-zero for both the board and host-sim targets.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-vscode-setup"
+      ]
+    },
+    {
+      "id": "firmware-reference-module-layout",
+      "track": "firmware",
+      "unitId": "firmware-reference-module-layout",
+      "bloomLevel": "understand",
+      "statement": "Student can navigate the project's module layout after a successful build.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-build"
+      ]
+    },
+    {
+      "id": "firmware-reference-memory-map",
+      "track": "firmware",
+      "unitId": "firmware-reference-memory-map",
+      "bloomLevel": "understand",
+      "statement": "Student can read the STM32F429ZI's memory map and locate flash/RAM/CCM regions relevant to this project.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-build"
+      ]
+    },
+    {
+      "id": "firmware-reference-hal",
+      "track": "firmware",
+      "unitId": "firmware-reference-hal",
+      "bloomLevel": "understand",
+      "statement": "Student can look up and use cads-zero's HAL interface for a given peripheral.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-build"
+      ]
+    },
+    {
+      "id": "firmware-how-to-flash",
+      "track": "firmware",
+      "unitId": "firmware-how-to-flash",
+      "bloomLevel": "apply",
+      "statement": "Student can flash a built firmware image to the real board via st-flash, respecting the safety rules.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-build",
+        "firmware-safety"
+      ]
+    },
+    {
+      "id": "firmware-how-to-board-test",
+      "track": "firmware",
+      "unitId": "firmware-how-to-board-test",
+      "bloomLevel": "apply",
+      "statement": "Student can verify the board is running correctly after a flash using the serial console.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-flash"
+      ]
+    },
+    {
+      "id": "firmware-how-to-debug",
+      "track": "firmware",
+      "unitId": "firmware-how-to-debug",
+      "bloomLevel": "apply",
+      "statement": "Student can attach GDB/st-util to a running board and inspect live state.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9",
+        "cads-zero-docs-10",
+        "cads-zero-docs-11",
+        "cads-zero-docs-12",
+        "cads-zero-docs-13",
+        "cads-zero-docs-14",
+        "cads-zero-docs-15",
+        "cads-zero-docs-16"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-flash"
+      ]
+    },
+    {
+      "id": "firmware-tutorials-first-build",
+      "track": "firmware",
+      "unitId": "firmware-tutorials-first-build",
+      "bloomLevel": "apply",
+      "statement": "Student can independently complete a full build-flash-verify loop on real hardware from scratch.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-how-to-build",
+        "firmware-how-to-flash"
+      ]
+    },
+    {
+      "id": "firmware-tutorials-first-gate",
+      "track": "firmware",
+      "unitId": "firmware-tutorials-first-gate",
+      "bloomLevel": "apply",
+      "statement": "Student can extend the first-build tutorial with a real conditional/gate in firmware logic.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-tutorials-first-build"
+      ]
+    },
+    {
+      "id": "firmware-tutorials-lwip-udp-hello",
+      "track": "firmware",
+      "unitId": "firmware-tutorials-lwip-udp-hello",
+      "bloomLevel": "apply",
+      "statement": "Student can send a real UDP packet from the board using cads_net_udp_send() and verify receipt on a host.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5",
+        "cads-zero-docs-6",
+        "cads-zero-docs-7",
+        "cads-zero-docs-8",
+        "cads-zero-docs-9"
+      ],
+      "prerequisiteObjectiveIds": [
+        "firmware-tutorials-first-gate",
+        "firmware-reference-hal"
+      ]
+    },
+    {
+      "id": "firmware-explanation-clean-room",
+      "track": "firmware",
+      "unitId": "firmware-explanation-clean-room",
+      "bloomLevel": "understand",
+      "statement": "Student can explain this project's clean-room requirement and why it constrains how code may be written.",
+      "sourceDocIds": [
+        "cads-zero-docs-0",
+        "cads-zero-docs-1",
+        "cads-zero-docs-2",
+        "cads-zero-docs-3",
+        "cads-zero-docs-4",
+        "cads-zero-docs-5"
+      ],
+      "prerequisiteObjectiveIds": []
+    }
+  ],
+  "rust": [
+    {
+      "id": "rust-ch04-01-what-is-ownership",
+      "track": "rust",
+      "unitId": "rust-ch04-01-what-is-ownership",
+      "bloomLevel": "understand",
+      "statement": "Student can explain what ownership is and why Rust uses it instead of a garbage collector.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16",
+        "rust-book-17",
+        "rust-book-18",
+        "rust-book-19",
+        "rust-book-20",
+        "rust-book-21",
+        "rust-book-22",
+        "rust-book-23",
+        "rust-book-24",
+        "rust-book-25",
+        "rust-book-26",
+        "rust-book-27",
+        "rust-book-28"
+      ],
+      "prerequisiteObjectiveIds": []
+    },
+    {
+      "id": "rust-ch04-02-references-and-borrowing",
+      "track": "rust",
+      "unitId": "rust-ch04-02-references-and-borrowing",
+      "bloomLevel": "apply",
+      "statement": "Student can use references and borrowing to use a value without taking ownership of it.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch04-01-what-is-ownership"
+      ]
+    },
+    {
+      "id": "rust-ch04-03-slices",
+      "track": "rust",
+      "unitId": "rust-ch04-03-slices",
+      "bloomLevel": "apply",
+      "statement": "Student can use slices to reference a contiguous sequence of elements without ownership.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch04-02-references-and-borrowing"
+      ]
+    },
+    {
+      "id": "rust-ch05-01-defining-structs",
+      "track": "rust",
+      "unitId": "rust-ch05-01-defining-structs",
+      "bloomLevel": "apply",
+      "statement": "Student can define and instantiate a struct to group related values.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch04-03-slices"
+      ]
+    },
+    {
+      "id": "rust-ch06-01-defining-an-enum",
+      "track": "rust",
+      "unitId": "rust-ch06-01-defining-an-enum",
+      "bloomLevel": "understand",
+      "statement": "Student can explain when an enum is the right tool versus a struct.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch05-01-defining-structs"
+      ]
+    },
+    {
+      "id": "rust-ch06-02-match",
+      "track": "rust",
+      "unitId": "rust-ch06-02-match",
+      "bloomLevel": "apply",
+      "statement": "Student can use match to handle every variant of an enum exhaustively.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch06-01-defining-an-enum"
+      ]
+    },
+    {
+      "id": "rust-ch06-03-if-let",
+      "track": "rust",
+      "unitId": "rust-ch06-03-if-let",
+      "bloomLevel": "apply",
+      "statement": "Student can use if let as concise sugar for a single-pattern match.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch06-02-match"
+      ]
+    },
+    {
+      "id": "rust-ch08-01-vectors",
+      "track": "rust",
+      "unitId": "rust-ch08-01-vectors",
+      "bloomLevel": "apply",
+      "statement": "Student can create, index, and iterate over a Vec<T>.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch06-03-if-let"
+      ]
+    },
+    {
+      "id": "rust-ch08-02-strings",
+      "track": "rust",
+      "unitId": "rust-ch08-02-strings",
+      "bloomLevel": "apply",
+      "statement": "Student can explain why Rust strings are UTF-8 and work with String/&str correctly.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16",
+        "rust-book-17",
+        "rust-book-18"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch08-01-vectors"
+      ]
+    },
+    {
+      "id": "rust-ch08-03-hash-maps",
+      "track": "rust",
+      "unitId": "rust-ch08-03-hash-maps",
+      "bloomLevel": "apply",
+      "statement": "Student can use a HashMap to associate keys with values.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch08-02-strings"
+      ]
+    },
+    {
+      "id": "rust-ch09-01-unrecoverable-errors-with-panic",
+      "track": "rust",
+      "unitId": "rust-ch09-01-unrecoverable-errors-with-panic",
+      "bloomLevel": "understand",
+      "statement": "Student can explain when panic! is the right response to an error versus Result.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch08-03-hash-maps"
+      ]
+    },
+    {
+      "id": "rust-ch09-02-recoverable-errors-with-result",
+      "track": "rust",
+      "unitId": "rust-ch09-02-recoverable-errors-with-result",
+      "bloomLevel": "apply",
+      "statement": "Student can propagate and handle recoverable errors using Result and the ? operator.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16",
+        "rust-book-17",
+        "rust-book-18",
+        "rust-book-19",
+        "rust-book-20",
+        "rust-book-21",
+        "rust-book-22",
+        "rust-book-23",
+        "rust-book-24",
+        "rust-book-25",
+        "rust-book-26",
+        "rust-book-27",
+        "rust-book-28",
+        "rust-book-29"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch09-01-unrecoverable-errors-with-panic"
+      ]
+    },
+    {
+      "id": "rust-ch10-01-syntax",
+      "track": "rust",
+      "unitId": "rust-ch10-01-syntax",
+      "bloomLevel": "understand",
+      "statement": "Student can read and write generic type parameters in a function or struct signature.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch09-02-recoverable-errors-with-result"
+      ]
+    },
+    {
+      "id": "rust-ch10-02-traits",
+      "track": "rust",
+      "unitId": "rust-ch10-02-traits",
+      "bloomLevel": "apply",
+      "statement": "Student can define a trait and use it as a bound to constrain generic code.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16",
+        "rust-book-17",
+        "rust-book-18",
+        "rust-book-19",
+        "rust-book-20",
+        "rust-book-21"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch10-01-syntax"
+      ]
+    },
+    {
+      "id": "rust-ch10-03-lifetime-syntax",
+      "track": "rust",
+      "unitId": "rust-ch10-03-lifetime-syntax",
+      "bloomLevel": "analyze",
+      "statement": "Student can analyze why a borrow-checker error occurs and annotate lifetimes to resolve it.",
+      "sourceDocIds": [
+        "rust-book-0",
+        "rust-book-1",
+        "rust-book-2",
+        "rust-book-3",
+        "rust-book-4",
+        "rust-book-5",
+        "rust-book-6",
+        "rust-book-7",
+        "rust-book-8",
+        "rust-book-9",
+        "rust-book-10",
+        "rust-book-11",
+        "rust-book-12",
+        "rust-book-13",
+        "rust-book-14",
+        "rust-book-15",
+        "rust-book-16",
+        "rust-book-17",
+        "rust-book-18",
+        "rust-book-19",
+        "rust-book-20",
+        "rust-book-21",
+        "rust-book-22",
+        "rust-book-23",
+        "rust-book-24",
+        "rust-book-25",
+        "rust-book-26",
+        "rust-book-27",
+        "rust-book-28",
+        "rust-book-29",
+        "rust-book-30",
+        "rust-book-31",
+        "rust-book-32",
+        "rust-book-33",
+        "rust-book-34"
+      ],
+      "prerequisiteObjectiveIds": [
+        "rust-ch10-02-traits"
+      ]
+    }
+  ],
+  "javascript": [
+    {
+      "id": "javascript-web-javascript-guide-introduction",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-introduction",
+      "bloomLevel": "understand",
+      "statement": "Student can explain what JavaScript is and where it runs.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16"
+      ],
+      "prerequisiteObjectiveIds": []
+    },
+    {
+      "id": "javascript-web-javascript-guide-grammar-and-types",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-grammar-and-types",
+      "bloomLevel": "understand",
+      "statement": "Student can identify JavaScript's basic syntax, variable declarations, and primitive types.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21",
+        "mdn-js-guide-22",
+        "mdn-js-guide-23",
+        "mdn-js-guide-24",
+        "mdn-js-guide-25",
+        "mdn-js-guide-26",
+        "mdn-js-guide-27",
+        "mdn-js-guide-28",
+        "mdn-js-guide-29",
+        "mdn-js-guide-30",
+        "mdn-js-guide-31",
+        "mdn-js-guide-32",
+        "mdn-js-guide-33",
+        "mdn-js-guide-34",
+        "mdn-js-guide-35",
+        "mdn-js-guide-36",
+        "mdn-js-guide-37",
+        "mdn-js-guide-38",
+        "mdn-js-guide-39",
+        "mdn-js-guide-40",
+        "mdn-js-guide-41",
+        "mdn-js-guide-42",
+        "mdn-js-guide-43",
+        "mdn-js-guide-44"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-introduction"
+      ]
+    },
+    {
+      "id": "javascript-web-javascript-guide-control-flow-and-error-handling",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-control-flow-and-error-handling",
+      "bloomLevel": "apply",
+      "statement": "Student can use conditionals and try/catch to control program flow and handle errors.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-grammar-and-types"
+      ]
+    },
+    {
+      "id": "javascript-web-javascript-guide-loops-and-iteration",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-loops-and-iteration",
+      "bloomLevel": "apply",
+      "statement": "Student can choose and write the right loop construct for a given iteration task.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21",
+        "mdn-js-guide-22"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-control-flow-and-error-handling"
+      ]
+    },
+    {
+      "id": "javascript-web-javascript-guide-functions",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-functions",
+      "bloomLevel": "apply",
+      "statement": "Student can define and call functions, including closures and default parameters.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21",
+        "mdn-js-guide-22",
+        "mdn-js-guide-23",
+        "mdn-js-guide-24",
+        "mdn-js-guide-25",
+        "mdn-js-guide-26",
+        "mdn-js-guide-27",
+        "mdn-js-guide-28",
+        "mdn-js-guide-29"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-loops-and-iteration"
+      ]
+    },
+    {
+      "id": "javascript-web-javascript-guide-working-with-objects",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-working-with-objects",
+      "bloomLevel": "analyze",
+      "statement": "Student can analyze how object properties, prototypes, and methods relate to design a small object model.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21",
+        "mdn-js-guide-22",
+        "mdn-js-guide-23",
+        "mdn-js-guide-24",
+        "mdn-js-guide-25",
+        "mdn-js-guide-26",
+        "mdn-js-guide-27"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-functions"
+      ]
+    },
+    {
+      "id": "javascript-web-javascript-guide-indexed-collections",
+      "track": "javascript",
+      "unitId": "javascript-web-javascript-guide-indexed-collections",
+      "bloomLevel": "apply",
+      "statement": "Student can use arrays and typed arrays to store and process ordered collections of data.",
+      "sourceDocIds": [
+        "mdn-js-guide-0",
+        "mdn-js-guide-1",
+        "mdn-js-guide-2",
+        "mdn-js-guide-3",
+        "mdn-js-guide-4",
+        "mdn-js-guide-5",
+        "mdn-js-guide-6",
+        "mdn-js-guide-7",
+        "mdn-js-guide-8",
+        "mdn-js-guide-9",
+        "mdn-js-guide-10",
+        "mdn-js-guide-11",
+        "mdn-js-guide-12",
+        "mdn-js-guide-13",
+        "mdn-js-guide-14",
+        "mdn-js-guide-15",
+        "mdn-js-guide-16",
+        "mdn-js-guide-17",
+        "mdn-js-guide-18",
+        "mdn-js-guide-19",
+        "mdn-js-guide-20",
+        "mdn-js-guide-21",
+        "mdn-js-guide-22",
+        "mdn-js-guide-23",
+        "mdn-js-guide-24",
+        "mdn-js-guide-25",
+        "mdn-js-guide-26",
+        "mdn-js-guide-27",
+        "mdn-js-guide-28",
+        "mdn-js-guide-29"
+      ],
+      "prerequisiteObjectiveIds": [
+        "javascript-web-javascript-guide-working-with-objects"
+      ]
+    }
+  ]
+}

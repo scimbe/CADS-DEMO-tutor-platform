@@ -117,4 +117,20 @@ describe("buildTutorPrompt", () => {
     expect(() => buildTutorPrompt(engine, query, ungrounded)).toThrow();
     expect(() => buildTutorPrompt(engine, query, ungrounded, { bloomLevel: "apply" })).toThrow();
   });
+
+  it("returns hintTier 0 for explain mode and the real escalation tier for socratic mode", () => {
+    // Real, load-bearing new field: the backbone architecture's learning_event log needs to
+    // know which escalation tier a turn actually used - this is what a caller records, since
+    // TutorSession can't know the eventual outcome within one turn (see learning-event.ts).
+    const engine = makeEngine();
+    const query = "What is ownership in Rust?";
+    const answer = engine.ask(query);
+
+    expect(buildTutorPrompt(engine, query, answer).hintTier).toBe(0);
+    expect(buildTutorPrompt(engine, query, answer, { bloomLevel: "understand" }).hintTier).toBe(0);
+    expect(buildTutorPrompt(engine, query, answer, { bloomLevel: "apply", attemptNumber: 1 }).hintTier).toBe(1);
+    expect(buildTutorPrompt(engine, query, answer, { bloomLevel: "apply", attemptNumber: 2 }).hintTier).toBe(2);
+    expect(buildTutorPrompt(engine, query, answer, { bloomLevel: "apply", attemptNumber: 3 }).hintTier).toBe(3);
+    expect(buildTutorPrompt(engine, query, answer, { bloomLevel: "apply", attemptNumber: 5 }).hintTier).toBe(3);
+  });
 });

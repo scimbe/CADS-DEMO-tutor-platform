@@ -29,17 +29,28 @@ export interface BuildTutorPromptOptions {
   attemptNumber?: number;
 }
 
+export interface TutorPromptResult {
+  prompt: string;
+  mode: BloomPromptMode;
+  bloomLevel: BloomLevel;
+  /** The escalation tier actually shown this turn - 0 for explain mode (no Socratic ladder
+   * involved at all), 1-3 for the Socratic tier ESCALATION_TIERS[tierIndex] used. This is what
+   * a caller records into learning_event.hintTierReached once the turn's real outcome is known
+   * (TutorSession itself can't know the outcome within a single turn - see learning-event.ts). */
+  hintTier: number;
+}
+
 export function buildTutorPrompt(
   engine: GroundingEngine,
   query: string,
   answer: GroundedAnswer,
   options: BuildTutorPromptOptions = {}
-): { prompt: string; mode: BloomPromptMode; bloomLevel: BloomLevel } {
+): TutorPromptResult {
   const level = options.bloomLevel ?? "understand";
   const mode = promptModeFor(level);
 
   if (mode === "explain") {
-    return { prompt: engine.buildGroundedPrompt(query, answer), mode, bloomLevel: level };
+    return { prompt: engine.buildGroundedPrompt(query, answer), mode, bloomLevel: level, hintTier: 0 };
   }
 
   if (!answer.grounded) {
@@ -63,5 +74,5 @@ export function buildTutorPrompt(
     `Student's question: ${query}`,
   ].join("\n");
 
-  return { prompt, mode, bloomLevel: level };
+  return { prompt, mode, bloomLevel: level, hintTier: tierIndex + 1 };
 }

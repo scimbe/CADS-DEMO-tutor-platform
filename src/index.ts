@@ -8,3 +8,5 @@ export * from "./memory.js";
 export * from "./session.js";
 export * from "./stt.js";
 export * from "./stt-race.js";
+export * from "./learning-event.js";
+export * from "./curriculum.js";

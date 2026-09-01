@@ -46,7 +46,7 @@ reference docs (real, licensed) --chunk--> Chunk[] --index--> Retriever --search
   type TutorTurnResult =
     | { kind: "refused"; reason: string }
     | { kind: "llm-error"; citations: RetrievedChunk[]; message: string }
-    | { kind: "answer"; text: string; citations: RetrievedChunk[]; mode: BloomPromptMode; bloomLevel: BloomLevel };
+    | { kind: "answer"; text: string; citations: RetrievedChunk[]; mode: BloomPromptMode; bloomLevel: BloomLevel; hintTier: number };
   ```
 
   so a caller can `switch` on `kind` and handle "never asked the LLM", "asked and it failed", and "got
@@ -92,6 +92,29 @@ reference docs (real, licensed) --chunk--> Chunk[] --index--> Retriever --search
   correct single-question output across two real calls) — see `tests/bloom.test.ts`'s regression
   guard for the exact wording this depends on.
 
+- **`learning-event.ts` / `curriculum.ts`** — Phase 1 of the backbone architecture (see the
+  [published architecture doc](https://claude.ai/code/artifact/67493cd9-2c7e-4922-85e4-256d5a7f7986)
+  for the full merged plan). `LearningEventStore` is the one canonical, append-only event log
+  every other backbone table (mastery, XP, badges) will be a derived view over — never
+  overwritten, backed by `node:sqlite` (built into Node 22+, zero new dependency, zero new
+  hosting coordination) rather than Postgres, on the same "ship something real and fully
+  testable now, with a stable-enough interface to swap the backing store later" principle
+  `bm25.ts` already documents for retrieval. `CurriculumGraph` is the one authoritative
+  prerequisite DAG (an objective with no `sourceDocIds` throws — a goal must trace to real
+  reference material, never be invented, the same non-negotiable rule this whole platform
+  already enforces for facts) and exposes `computeFrontier()`, the mechanical "what should this
+  student attempt next" query a future check-in dialog (Phase 4) will hand to the LLM as its
+  only candidate set to phrase, never to choose from freely.
+
+  `bloom.ts#buildTutorPrompt()` and `TutorSession.ask()` both now return `hintTier` (0 for
+  explain mode, 1-3 for the Socratic escalation tier actually shown) — this is what a caller
+  records into a `learning_event` once the turn's real outcome is known. `TutorSession` itself
+  deliberately does NOT auto-write learning events: a single turn can't know whether the
+  student ultimately succeeded independently or needed the answer spelled out next turn, so
+  guessing an outcome here would be exactly the kind of invented signal this project doesn't
+  ship. See `tests/learning-event.test.ts`/`tests/curriculum.test.ts` for real, disk-persisted
+  SQLite round-trips, not mocks.
+
 ## A real, honest limitation found while building this
 
 The relevance threshold is an **absolute BM25 score**, and BM25 scores are corpus- and
@@ -109,7 +132,7 @@ project's own firmware work never trusts an untested assumption.
 
 ```bash
 npm install
-npm test                                    # 32 tests, all against real logic/real whisper.cpp, no LLM needed
+npm test                                    # 45 tests, all against real logic/real whisper.cpp/real SQLite, no LLM needed
 npm run ingest -- content-packs/rust        # fetches real chapters from github.com/rust-lang/book
 npx tsc && node dist/cli/demo.js content-packs/rust "why do I need a reference instead of taking ownership"
 ```

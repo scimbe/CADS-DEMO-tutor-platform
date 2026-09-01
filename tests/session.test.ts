@@ -142,10 +142,14 @@ describe("TutorSession", () => {
     if (result.kind === "answer") {
       expect(result.mode).toBe("socratic");
       expect(result.bloomLevel).toBe("apply");
+      expect(result.hintTier).toBe(1);
     }
 
     const calledPrompt = complete.mock.calls[0][0];
     expect(calledPrompt).toContain("help the student apply a concept");
     expect(calledPrompt).not.toContain("Answer the student's question using ONLY the numbered");
+
+    const recordedMetadata = (memory.recordInteraction as jest.Mock).mock.calls[0][2];
+    expect(recordedMetadata).toMatchObject({ bloomLevel: "apply", mode: "socratic", hintTier: 1 });
   });
 });

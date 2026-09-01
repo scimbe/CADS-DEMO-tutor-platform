@@ -6,7 +6,14 @@ import type { BloomLevel, RetrievedChunk } from "./types.js";
 export type TutorTurnResult =
   | { kind: "refused"; reason: string }
   | { kind: "llm-error"; citations: RetrievedChunk[]; message: string }
-  | { kind: "answer"; text: string; citations: RetrievedChunk[]; mode: BloomPromptMode; bloomLevel: BloomLevel };
+  | {
+      kind: "answer";
+      text: string;
+      citations: RetrievedChunk[];
+      mode: BloomPromptMode;
+      bloomLevel: BloomLevel;
+      hintTier: number;
+    };
 
 export interface AskOptions {
   bloomLevel?: BloomLevel;
@@ -41,7 +48,7 @@ export class TutorSession {
       return { kind: "refused", reason: answer.refusalReason! };
     }
 
-    const { prompt, mode, bloomLevel } = buildTutorPrompt(this.engine, query, answer, options);
+    const { prompt, mode, bloomLevel, hintTier } = buildTutorPrompt(this.engine, query, answer, options);
 
     let text: string;
     try {
@@ -60,11 +67,12 @@ export class TutorSession {
         citedChunkIds: answer.citations.map((c) => c.chunk.id),
         bloomLevel,
         mode,
+        hintTier,
       });
     } catch (err) {
       console.warn("TutorSession: failed to record interaction", err);
     }
 
-    return { kind: "answer", text, citations: answer.citations, mode, bloomLevel };
+    return { kind: "answer", text, citations: answer.citations, mode, bloomLevel, hintTier };
   }
 }

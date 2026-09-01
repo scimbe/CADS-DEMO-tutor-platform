@@ -238,17 +238,39 @@ wrong assumption in the first draft — a single isolated event's estimate doesn
 a vacuum, since this is a normalized weighted average, not a raw decaying score) plus the existing
 10 for `curriculum.ts`, 4 of which run against the real generated dataset.
 
+`TutorSession` now closes the loop the roadmap called "leads instead of waits": pass a
+`CurriculumGraph` + `LearningEventStore` + `track` to its constructor (all optional — omit any one
+and `nextSuggestion` is simply always `null`, so every existing caller keeps working unchanged) and
+every successful answer turn comes back with `nextSuggestion` — the single next-legal objective for
+that student, chosen by code via `computeFrontier`, never by the LLM. A caller phrases it however
+it wants (or not at all); `TutorSession`'s job stops at the selection, which is the actual
+trust-boundary-sensitive part. Live-verified against the real LLM endpoint and the real rust
+content pack: a fresh student's first turn suggests the true root objective; after a second real
+turn with one recorded `independent_success` in between, the suggestion correctly advances to the
+next legal objective. 5 new tests, including one confirming the suggestion never appears on a
+`refused` or `llm-error` turn (only a real completed answer produces one) and one confirming it's
+scoped per-student. 67 tests total.
+
+Still open from the roadmap's Phase A: the self-explanation gate (mechanism #2 — a correct answer
+at apply-or-above shouldn't itself count as mastery until a near-transfer follow-up also passes)
+needs a real "submit work, get judged" interaction shape that doesn't exist yet in this API
+(`TutorSession.ask()` today is "student asks, tutor answers/guides," not "student submits, tutor
+grades") — deliberately not forced into the current shape without that design thought, rather than
+shipping a mismatched abstraction. The Frontier Map (visible DAG in the webview) and
+misconception-tagged remediation are still unbuilt.
+
 ## Status
 
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 62 passing tests
-(the original grounding suite, `TutorSession`'s three-case coverage: refused / llm-error / answer,
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 67 passing tests
+(the original grounding suite, `TutorSession`'s coverage including the turn-end suggestion,
 `LearningEventStore`, `CurriculumGraph` including the real generated multi-track objective set, and
 `mastery.ts`'s real `isSatisfied` implementation), a working ingestion pipeline against live
-upstream content, a verified `tutor` CLI turn, and a verified `frontier` CLI turn (curriculum graph
-+ event store + mastery estimate, end to end, live).
+upstream content, a verified `tutor` CLI turn (now including a live-verified proactive suggestion),
+and a verified `frontier` CLI turn (curriculum graph + event store + mastery estimate, end to end,
+live).
 
 Still not done: the VS Code extension wiring (CaDS Tutor identity, active observation of what a
 student is doing in the editor) lives in `CADS-DEMO-firmware-lab`'s own extension code, not here, and

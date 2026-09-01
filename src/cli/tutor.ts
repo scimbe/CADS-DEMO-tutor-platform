@@ -7,12 +7,18 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Bm25Retriever } from "../bm25.js";
+import { CurriculumGraph, loadCurriculumObjectives } from "../curriculum.js";
 import { GroundingEngine } from "../ground.js";
+import { LearningEventStore } from "../learning-event.js";
 import { LlmClient } from "../llm.js";
 import { TutorMemory } from "../memory.js";
 import { TutorSession } from "../session.js";
 import type { Chunk, Source } from "../types.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.join(__dirname, "..", "..");
 
 async function main() {
   const packDir = process.argv[2];
@@ -40,8 +46,25 @@ async function main() {
 
   const memory = new TutorMemory(path.join(process.cwd(), "memory-data"));
 
-  const session = new TutorSession(engine, llm, memory);
+  // Turn-end proactive suggestion (Proactive Tutor Roadmap, Phase A #3) is opt-in - only
+  // wired up when a real multi-track curriculum.json exists, matching the track this content
+  // pack's directory name names (content-packs/rust -> "rust"). Falls back to no suggestion
+  // (matching TutorSession's own default) rather than failing the whole CLI turn if the
+  // curriculum file or track isn't found - grounding/dialog is the load-bearing feature here.
+  const track = path.basename(packDir);
+  const curriculumPath = path.join(REPO_ROOT, "content-packs", "curriculum.json");
+  let curriculum: CurriculumGraph | undefined;
+  let learningEvents: LearningEventStore | undefined;
+  try {
+    curriculum = new CurriculumGraph(loadCurriculumObjectives(curriculumPath));
+    learningEvents = new LearningEventStore(path.join(REPO_ROOT, "memory-data", "learning-events.db"));
+  } catch (err) {
+    console.warn(`tutor CLI: turn-end suggestion unavailable (${err instanceof Error ? err.message : String(err)})`);
+  }
+
+  const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents, track });
   const result = await session.ask(studentId, query);
+  learningEvents?.close();
 
   console.log(`Question: ${query}`);
 
@@ -67,6 +90,11 @@ async function main() {
     const source = engine.sourceFor(c.chunk);
     console.log(`  [score ${c.score.toFixed(2)}] ${source?.title} — ${c.chunk.section}`);
     console.log(`    ${c.chunk.url}`);
+  }
+
+  if (result.nextSuggestion) {
+    console.log(`\nWhat's next: [${result.nextSuggestion.bloomLevel}] ${result.nextSuggestion.statement}`);
+    console.log(`  (${result.nextSuggestion.objectiveId})`);
   }
 }
 

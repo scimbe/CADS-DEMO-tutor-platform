@@ -1,6 +1,12 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { jest } from "@jest/globals";
 import { Bm25Retriever } from "../src/bm25.js";
+import { CurriculumGraph } from "../src/curriculum.js";
+import type { CurriculumObjective } from "../src/curriculum.js";
 import { GroundingEngine } from "../src/ground.js";
+import { LearningEventStore } from "../src/learning-event.js";
 import type { Explainer, InteractionRecorder } from "../src/session.js";
 import { TutorSession } from "../src/session.js";
 import type { Chunk, Source } from "../src/types.js";
@@ -151,5 +157,113 @@ describe("TutorSession", () => {
 
     const recordedMetadata = (memory.recordInteraction as jest.Mock).mock.calls[0][2];
     expect(recordedMetadata).toMatchObject({ bloomLevel: "apply", mode: "socratic", hintTier: 1 });
+  });
+
+  it("nextSuggestion is null when no curriculum/learningEvents/track were supplied (opt-in, backward compatible)", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("answer") };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const session = new TutorSession(engine, llm, memory);
+
+    const result = await session.ask("student-1", "What is ownership in Rust?");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.nextSuggestion).toBeNull();
+    }
+  });
+});
+
+describe("TutorSession's turn-end proactive suggestion (Proactive Tutor Roadmap, Phase A #3)", () => {
+  let dir: string;
+  let store: LearningEventStore;
+
+  const objectives: CurriculumObjective[] = [
+    { id: "rust-ownership", track: "rust", unitId: "rust-ownership", bloomLevel: "understand", statement: "Explain ownership.", sourceDocIds: ["rust-book-0"], prerequisiteObjectiveIds: [] },
+    { id: "rust-structs", track: "rust", unitId: "rust-structs", bloomLevel: "apply", statement: "Define a struct.", sourceDocIds: ["rust-book-1"], prerequisiteObjectiveIds: ["rust-ownership"] },
+  ];
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "cads-session-suggestion-test-"));
+    store = new LearningEventStore(path.join(dir, "events.db"));
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function makeSession(llmText = "Ownership means one owner at a time.") {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue(llmText) };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    return new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+  }
+
+  it("suggests the true root objective for a student with no history", async () => {
+    const session = makeSession();
+    const result = await session.ask("student-1", "What is ownership in Rust?");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.nextSuggestion).toEqual({ objectiveId: "rust-ownership", bloomLevel: "understand", statement: "Explain ownership." });
+    }
+  });
+
+  it("advances the suggestion after a real independent_success event is recorded for the current objective", async () => {
+    store.record({
+      entityId: "student-1",
+      sessionId: "s1",
+      track: "rust",
+      objectiveId: "rust-ownership",
+      bloomLevel: "understand",
+      exchangeType: null,
+      source: "chat_answer",
+      hintTierReached: 0,
+      outcome: "independent_success",
+    });
+
+    const session = makeSession();
+    const result = await session.ask("student-1", "What is ownership in Rust?");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.nextSuggestion?.objectiveId).toBe("rust-structs");
+    }
+  });
+
+  it("is scoped per-student - another student's mastery never leaks into this student's suggestion", async () => {
+    store.record({
+      entityId: "student-OTHER",
+      sessionId: "s1",
+      track: "rust",
+      objectiveId: "rust-ownership",
+      bloomLevel: "understand",
+      exchangeType: null,
+      source: "chat_answer",
+      hintTierReached: 0,
+      outcome: "independent_success",
+    });
+
+    const session = makeSession();
+    const result = await session.ask("student-1", "What is ownership in Rust?");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.nextSuggestion?.objectiveId).toBe("rust-ownership");
+    }
+  });
+
+  it("never appears on a refused or llm-error turn", async () => {
+    const engine = makeEngine();
+    const failingLlm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockRejectedValue(new Error("boom")) };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>() };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, failingLlm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const refused = await session.ask("student-1", "What is the capital of France?");
+    expect(refused.kind).toBe("refused");
+    expect("nextSuggestion" in refused).toBe(false);
+
+    const errored = await session.ask("student-1", "What is ownership in Rust?");
+    expect(errored.kind).toBe("llm-error");
+    expect("nextSuggestion" in errored).toBe(false);
   });
 });

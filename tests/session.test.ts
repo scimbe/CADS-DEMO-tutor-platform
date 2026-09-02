@@ -7,6 +7,7 @@ import { CurriculumGraph } from "../src/curriculum.js";
 import type { CurriculumObjective } from "../src/curriculum.js";
 import { GroundingEngine } from "../src/ground.js";
 import { LearningEventStore } from "../src/learning-event.js";
+import { createIsSatisfied } from "../src/mastery.js";
 import type { Explainer, InteractionRecorder } from "../src/session.js";
 import { TutorSession } from "../src/session.js";
 import type { Chunk, Source } from "../src/types.js";
@@ -364,5 +365,72 @@ describe("TutorSession.checkIn - proactive, editor-triggered feedback (Proactive
     const result = await session.checkIn("student-1", "rust-ghost", "code");
     expect(result.kind).toBe("refused");
     expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("strips the ASSESSMENT line from what the student sees and records a real independent_success event", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = {
+      complete: jest.fn<Explainer["complete"]>().mockResolvedValue("This correctly demonstrates ownership.\n\nASSESSMENT: satisfied"),
+    };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const result = await session.checkIn("student-1", "rust-ownership", "fn main() {}");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.text).toBe("This correctly demonstrates ownership.");
+      expect(result.text).not.toContain("ASSESSMENT");
+    }
+
+    const events = store.query({ entityId: "student-1", objectiveId: "rust-ownership" });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ outcome: "independent_success", source: "checkin_dialog", track: "rust" });
+  });
+
+  it("maps partial and not_satisfied assessments to their own outcomes", async () => {
+    const curriculum = new CurriculumGraph(objectives);
+
+    const partialLlm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Getting there.\nASSESSMENT: partial") };
+    const partialMemory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const partialSession = new TutorSession(makeEngine(), partialLlm, partialMemory, { curriculum, learningEvents: store, track: "rust" });
+    await partialSession.checkIn("student-partial", "rust-ownership", "code");
+    expect(store.query({ entityId: "student-partial" })[0].outcome).toBe("partial");
+
+    const failLlm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Not quite.\nASSESSMENT: not_satisfied") };
+    const failMemory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const failSession = new TutorSession(makeEngine(), failLlm, failMemory, { curriculum, learningEvents: store, track: "rust" });
+    await failSession.checkIn("student-fail", "rust-ownership", "code");
+    expect(store.query({ entityId: "student-fail" })[0].outcome).toBe("failure");
+  });
+
+  it("records nothing, and does not throw, when the LLM omits a valid ASSESSMENT line", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Feedback with no assessment marker at all.") };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const result = await session.checkIn("student-1", "rust-ownership", "code");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.text).toBe("Feedback with no assessment marker at all.");
+    }
+    expect(store.query({ entityId: "student-1" })).toHaveLength(0);
+  });
+
+  it("a recorded checkIn event immediately advances nextSuggestion - code writes before the frontier is queried", async () => {
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Correct.\nASSESSMENT: satisfied") };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(makeEngine(), llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    // Before any check-in, the frontier is still at the root.
+    expect(curriculum.computeFrontier("rust", createIsSatisfied(store, "student-1")).map((o) => o.id)).toEqual(["rust-ownership"]);
+
+    const result = await session.checkIn("student-1", "rust-ownership", "code");
+    // A "satisfied" check-in writes the event, and the SAME call's own nextSuggestion already
+    // reflects it - the frontier has moved on to the next objective by the time this returns.
+    if (result.kind === "answer") expect(result.nextSuggestion?.objectiveId).toBe("rust-structs");
   });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { BloomPromptMode } from "./bloom.js";
 import { buildTutorPrompt } from "./bloom.js";
 import type { CurriculumGraph } from "./curriculum.js";
@@ -68,6 +69,44 @@ export interface TutorSessionOptions {
 const CHECKIN_CODE_CONTEXT_MAX_CHARS = 6000;
 
 /**
+ * The trailing line checkIn()'s prompt requires so a real LearningEventStore.record() can
+ * happen without guessing. Found live (2026-09-02): mastery estimation and nextSuggestion were
+ * already fully built and correctly READING from LearningEventStore, but nothing anywhere ever
+ * WROTE to it - ask() and checkIn() only ever called store.query() indirectly (via
+ * createIsSatisfied), never store.record(). That's a real, working-as-designed gap for ask()
+ * (a Q&A turn has no inherent pass/fail signal - see this file's git history for why that was
+ * deliberately left to a future caller), but checkIn() genuinely CAN judge outcome: it's
+ * reviewing real code against a real objective, which is exactly what a LearningEvent's
+ * outcome field means. Rather than have the LLM's prose feedback silently double as ground
+ * truth (fragile, unparseable, and a step toward letting the model originate judgments this
+ * platform doesn't structurally trust it to make), the prompt asks for one explicit,
+ * machine-parseable line separate from the human-facing feedback - closer to the trust
+ * boundary this platform already draws elsewhere (the model explains/judges within a
+ * structure code defines, code decides what that structure means).
+ */
+const CHECKIN_ASSESSMENT_MARKER = "ASSESSMENT:";
+type CheckInAssessment = "satisfied" | "partial" | "not_satisfied";
+
+function parseCheckInAssessment(rawText: string): { displayText: string; assessment: CheckInAssessment | null } {
+  const lines = rawText.split("\n");
+  const lastLine = lines[lines.length - 1]?.trim() ?? "";
+  const match = /^ASSESSMENT:\s*(satisfied|partial|not_satisfied)\s*$/i.exec(lastLine);
+  if (!match) {
+    return { displayText: rawText.trim(), assessment: null };
+  }
+  return {
+    displayText: lines.slice(0, -1).join("\n").trim(),
+    assessment: match[1].toLowerCase() as CheckInAssessment,
+  };
+}
+
+const CHECKIN_ASSESSMENT_TO_OUTCOME: Record<CheckInAssessment, "independent_success" | "partial" | "failure"> = {
+  satisfied: "independent_success",
+  partial: "partial",
+  not_satisfied: "failure",
+};
+
+/**
  * Orchestrates one student turn across GroundingEngine, an Explainer (the
  * LLM), and an InteractionRecorder (dialog memory) - without letting either
  * of the latter two run on a path where they shouldn't: an ungrounded
@@ -78,6 +117,10 @@ export class TutorSession {
   private readonly curriculum?: CurriculumGraph;
   private readonly learningEvents?: LearningEventStore;
   private readonly track?: string;
+  /** One TutorSession instance = one real session, for LearningEvent.sessionId - matches how
+   * every real caller (the tutor CLI, the VS Code extension) already constructs a fresh
+   * TutorSession per session rather than reusing one across students/sessions. */
+  private readonly sessionId = randomUUID();
 
   constructor(
     private readonly engine: GroundingEngine,
@@ -176,11 +219,17 @@ export class TutorSession {
       "",
       "Student's current code:",
       truncatedCode,
+      "",
+      "After your feedback, end your response with EXACTLY ONE additional line, on its own,",
+      `with no other text on it, in the literal form "${CHECKIN_ASSESSMENT_MARKER} <value>" where`,
+      "<value> is one of: satisfied (the code fully demonstrates the objective), partial (real",
+      "progress but something's missing or wrong), not_satisfied (doesn't yet demonstrate it).",
+      "This line is read by code, not shown to the student - it must be exactly that format.",
     ].join("\n");
 
-    let text: string;
+    let rawText: string;
     try {
-      text = await this.llm.complete(prompt);
+      rawText = await this.llm.complete(prompt);
     } catch (err) {
       return {
         kind: "llm-error",
@@ -189,22 +238,51 @@ export class TutorSession {
       };
     }
 
+    const { displayText, assessment } = parseCheckInAssessment(rawText);
+
     try {
-      await this.memory.recordInteraction(studentId, text, {
+      await this.memory.recordInteraction(studentId, displayText, {
         objectiveId,
         citedChunkIds: answer.citations.map((c) => c.chunk.id),
         bloomLevel: objective.bloomLevel,
         mode: "checkin",
         hintTier: 0,
+        assessment,
       });
     } catch (err) {
       console.warn("TutorSession: failed to record interaction", err);
     }
 
+    // The one place this class writes to LearningEventStore (see this file's own history: ask()
+    // deliberately doesn't, a Q&A turn has no inherent pass/fail signal). Silently skipped, not
+    // an error, if the LLM didn't comply with the assessment-line format - recording a guessed
+    // outcome would be worse than recording nothing, and a caller can always retry the check-in.
+    if (this.learningEvents && this.track && assessment) {
+      try {
+        this.learningEvents.record({
+          entityId: studentId,
+          sessionId: this.sessionId,
+          track: this.track,
+          objectiveId,
+          unitId: objective.unitId,
+          bloomLevel: objective.bloomLevel,
+          exchangeType: null,
+          source: "checkin_dialog",
+          hintTierReached: 0,
+          outcome: CHECKIN_ASSESSMENT_TO_OUTCOME[assessment],
+          groundingDocIds: answer.citations.map((c) => c.chunk.id),
+        });
+      } catch (err) {
+        console.warn("TutorSession: failed to record learning event", err);
+      }
+    } else if (this.learningEvents && this.track && !assessment) {
+      console.warn(`TutorSession.checkIn(): LLM response missing a valid "${CHECKIN_ASSESSMENT_MARKER}" line - no learning event recorded.`);
+    }
+
     const nextSuggestion = this.computeNextSuggestion(studentId);
     return {
       kind: "answer",
-      text,
+      text: displayText,
       citations: answer.citations,
       mode: "explain",
       bloomLevel: objective.bloomLevel,

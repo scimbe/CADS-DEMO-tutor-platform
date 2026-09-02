@@ -249,7 +249,7 @@ content pack: a fresh student's first turn suggests the true root objective; aft
 turn with one recorded `independent_success` in between, the suggestion correctly advances to the
 next legal objective. 5 new tests, including one confirming the suggestion never appears on a
 `refused` or `llm-error` turn (only a real completed answer produces one) and one confirming it's
-scoped per-student. 78 tests total.
+scoped per-student. 82 tests total.
 
 Still open from the roadmap's Phase A: the self-explanation gate (mechanism #2 — a correct answer
 at apply-or-above shouldn't itself count as mastery until a near-transfer follow-up also passes)
@@ -282,12 +282,26 @@ real LLM endpoint with deliberately-wrong code (using a `String` after it was mo
 correctly identified the compile error, correctly explained why, and cited only genuinely
 on-topic ownership excerpts. 5 new tests plus 4 for the new `groundOnKnownChunks()` primitive.
 
+**A real gap a downstream consumer found, closed same-day**: mastery estimation and
+`nextSuggestion` were fully built and correctly *reading* from `LearningEventStore`, but nothing
+anywhere ever *wrote* to it — `ask()`/`checkIn()` only ever queried it indirectly, never
+`.record()`'d a real event. `ask()` still deliberately doesn't (a Q&A turn has no inherent
+pass/fail signal — unchanged from the original design), but `checkIn()` genuinely can judge
+outcome: it's reviewing real code against a real objective. Rather than let the LLM's free-form
+prose double as ground truth, `checkIn`'s prompt now asks for one additional, machine-parseable
+trailing line (`ASSESSMENT: satisfied|partial|not_satisfied`) — parsed out and stripped before the
+student ever sees it, mapped to a real `LearningEventStore.record()` call
+(`independent_success`/`partial`/`failure`). Missing or malformed assessment lines record nothing
+rather than guessing — a caller can always retry. Live-verified: a `checkIn` against code that
+compiles but doesn't yet explain the *why* correctly recorded `partial`, and `nextSuggestion`
+correctly held at the same objective rather than advancing on weak evidence. 4 new tests.
+
 ## Status
 
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 78 passing tests
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 82 passing tests
 (the original grounding suite, `TutorSession`'s coverage including the turn-end suggestion,
 `LearningEventStore`, `CurriculumGraph` including the real generated multi-track objective set, and
 `mastery.ts`'s real `isSatisfied` implementation), a working ingestion pipeline against live

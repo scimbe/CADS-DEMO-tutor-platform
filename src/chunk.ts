@@ -13,6 +13,26 @@ export function chunkMarkdown(
   markdown: string,
   maxChars = 1200
 ): Chunk[] {
+  // Real bug, found live (2026-09-02): chunkIndex used to start at 0 on EVERY call, and
+  // ingest.ts calls this function once per chapter, concatenating the results - so chapter 2's
+  // chunks silently reused chapter 1's ids ("rust-book-0", "rust-book-1", ...), all the way
+  // across every chapter in a pack. All three shipped content packs had this: 270 rust chunks
+  // with only 35 unique ids, 155 firmware chunks with 31, 195 javascript chunks with 45 - a
+  // majority of every pack's chunks were unreachable by their own id, silently shadowed by a
+  // later chapter's chunk claiming the same id. GroundingEngine.ask()'s own citations were
+  // accidentally unaffected (they carry the real retrieved Chunk object, never re-looked-up by
+  // id) - what actually broke is anything that looks a chunk up BY id, which is exactly what
+  // curriculum.json's sourceDocIds (an objective's own grounding material) and
+  // groundOnKnownChunks() (session.ts's checkIn()) both do. Fix: derive the id from the page
+  // itself (via baseUrl, which is already unique per chapter - see ingest.ts) plus a per-page
+  // running index, so two different chapters can never collide no matter how many chunks each
+  // produces.
+  const pageSlug = baseUrl
+    .replace(/^https?:\/\//, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
   const lines = markdown.split(/\r?\n/);
   const sections: { heading: string; anchor: string; body: string[] }[] = [];
   let current = { heading: "", anchor: "", body: [] as string[] };
@@ -43,7 +63,7 @@ export function chunkMarkdown(
     const pieces = splitLong(text, maxChars);
     for (const piece of pieces) {
       chunks.push({
-        id: `${sourceId}-${chunkIndex++}`,
+        id: `${sourceId}-${pageSlug}-${chunkIndex++}`,
         sourceId,
         section: section.heading || "(untitled)",
         url: section.anchor ? `${baseUrl}#${section.anchor}` : baseUrl,

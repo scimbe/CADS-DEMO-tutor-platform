@@ -43,4 +43,20 @@ Structs let you group related values together.
     const chunks = chunkMarkdown("test", "https://example.test/", "# Empty heading\n\n# Another\n\nReal text here.");
     expect(chunks.every((c) => c.text.trim().length > 0)).toBe(true);
   });
+
+  it("ids never collide across two chapters ingested with the same sourceId - real bug, found 2026-09-02", () => {
+    // The exact failure mode that shipped in all three content packs: ingest.ts calls
+    // chunkMarkdown once per chapter and concatenates the results. Before this fix, chunkIndex
+    // reset to 0 on every call, so chapter 2's first chunk silently reused chapter 1's id.
+    const chapter1 = chunkMarkdown("rust-book", "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html", md);
+    const chapter2 = chunkMarkdown("rust-book", "https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html", md);
+    const allIds = [...chapter1, ...chapter2].map((c) => c.id);
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it("the same page chunked twice produces the same ids (deterministic, not random)", () => {
+    const a = chunkMarkdown("rust-book", "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html", md);
+    const b = chunkMarkdown("rust-book", "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html", md);
+    expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id));
+  });
 });

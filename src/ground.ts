@@ -68,6 +68,35 @@ export class GroundingEngine {
   }
 
   /**
+   * Grounds an answer in a KNOWN set of chunks rather than a BM25 search - for callers that
+   * already know exactly which material is relevant (a CurriculumObjective's own
+   * `sourceDocIds`, set at authoring time - see curriculum.ts) instead of a student's free-text
+   * question. This is what makes a proactive check-in (session.ts's `checkIn`, prompted by
+   * code the student wrote, not a question they asked) possible without inventing a fake query
+   * string to feed the retriever - retrieval and "which chunks ground this" are two different
+   * problems, and an objective already answers the second one directly. Missing ids are
+   * silently skipped, not an error: a stale sourceDocId pointing at a chunk that's since been
+   * re-ingested with a new id shouldn't crash a check-in, it should just ground on what's still
+   * findable - `groundOnKnownChunks([])` or all-missing correctly returns `grounded: false`
+   * exactly like an ungrounded `ask()`.
+   */
+  groundOnKnownChunks(chunkIds: string[]): GroundedAnswer {
+    const citations: RetrievedChunk[] = [];
+    for (const id of chunkIds) {
+      const chunk = this.chunksById.get(id);
+      if (chunk) citations.push({ chunk, score: this.options.relevanceThreshold });
+    }
+    if (citations.length === 0) {
+      return {
+        grounded: false,
+        citations: [],
+        refusalReason: "None of this objective's reference chunks are currently indexed - the content pack may be out of sync with the curriculum.",
+      };
+    }
+    return { grounded: true, citations };
+  }
+
+  /**
    * Builds the prompt material an LLM is allowed to answer from: the
    * retrieved chunks, each labeled with its source/license/URL, plus an
    * explicit instruction to answer only from what's quoted and to cite

@@ -249,7 +249,7 @@ content pack: a fresh student's first turn suggests the true root objective; aft
 turn with one recorded `independent_success` in between, the suggestion correctly advances to the
 next legal objective. 5 new tests, including one confirming the suggestion never appears on a
 `refused` or `llm-error` turn (only a real completed answer produces one) and one confirming it's
-scoped per-student. 67 tests total.
+scoped per-student. 78 tests total.
 
 Still open from the roadmap's Phase A: the self-explanation gate (mechanism #2 — a correct answer
 at apply-or-above shouldn't itself count as mastery until a near-transfer follow-up also passes)
@@ -259,12 +259,35 @@ grades") — deliberately not forced into the current shape without that design 
 shipping a mismatched abstraction. The Frontier Map (visible DAG in the webview) and
 misconception-tagged remediation are still unbuilt.
 
+## Proactive check-ins (Phase B, minus live editor signals)
+
+Everything above is still request-response: the student has to ask something before the tutor
+says anything. `TutorSession.checkIn(studentId, objectiveId, codeContext)` is the first piece of
+Phase B — "notice what the student is doing before they ask" — built directly from live operator
+feedback ("wenn ich im Quellcode was mache, bekomme ich kein Feedback"). A caller (the VS Code
+extension, on a file save or a build event — that instrumentation is still the extension's own
+work, not built here) hands it the objective the student is currently working toward and their
+current code; `checkIn` grounds the feedback in exactly that objective's own `sourceDocIds` via
+`GroundingEngine.groundOnKnownChunks()` — no BM25 search of the code (code doesn't share prose
+vocabulary with reference material, and the objective already answers "what's relevant" more
+precisely than a search would) — and returns the same `TutorTurnResult` shape `ask()` does,
+`nextSuggestion` included, so a caller's rendering code doesn't need a second path for "answered a
+question" versus "unprompted check-in."
+
+Finding and fixing this exposed a real, serious, pre-existing bug (see the chunk-id-collision fix
+commit) — `checkIn` is the first thing in this codebase that looks a chunk up strictly by id
+instead of trusting whatever a BM25 search or `sourceDocIds` array already resolved, and that's
+exactly what turned a silent, years-old-shaped bug into a same-day fix. Live-verified against the
+real LLM endpoint with deliberately-wrong code (using a `String` after it was moved): the feedback
+correctly identified the compile error, correctly explained why, and cited only genuinely
+on-topic ownership excerpts. 5 new tests plus 4 for the new `groundOnKnownChunks()` primitive.
+
 ## Status
 
 This is no longer Phase 0's grounding-only engine. `TutorSession` closes the full loop —
 grounding → LLM explanation → memory recording — and that loop has been run end to end for real: a
 real question, real BM25 retrieval against ingested Rust Book content, a real HTTP call to a live LLM
-endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 67 passing tests
+endpoint, and a real interaction written to `TutorMemory`, not mocked at any stage. 78 passing tests
 (the original grounding suite, `TutorSession`'s coverage including the turn-end suggestion,
 `LearningEventStore`, `CurriculumGraph` including the real generated multi-track objective set, and
 `mastery.ts`'s real `isSatisfied` implementation), a working ingestion pipeline against live

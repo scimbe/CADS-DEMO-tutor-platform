@@ -70,3 +70,33 @@ describe("GroundingEngine", () => {
     expect(answer.grounded).toBe(false);
   });
 });
+
+describe("GroundingEngine.groundOnKnownChunks", () => {
+  it("grounds directly on the given chunk ids, no retrieval involved", () => {
+    const engine = makeEngine();
+    const answer = engine.groundOnKnownChunks(["rust-book-1"]);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations).toHaveLength(1);
+    expect(answer.citations[0].chunk.id).toBe("rust-book-1");
+  });
+
+  it("preserves order and includes multiple known chunks", () => {
+    const engine = makeEngine();
+    const answer = engine.groundOnKnownChunks(["rust-book-1", "rust-book-0"]);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((c) => c.chunk.id)).toEqual(["rust-book-1", "rust-book-0"]);
+  });
+
+  it("silently skips unknown chunk ids rather than throwing", () => {
+    const engine = makeEngine();
+    const answer = engine.groundOnKnownChunks(["rust-book-0", "does-not-exist"]);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations).toHaveLength(1);
+  });
+
+  it("refuses when every id is unknown or the list is empty", () => {
+    const engine = makeEngine();
+    expect(engine.groundOnKnownChunks([]).grounded).toBe(false);
+    expect(engine.groundOnKnownChunks(["ghost-1", "ghost-2"]).grounded).toBe(false);
+  });
+});

@@ -267,3 +267,102 @@ describe("TutorSession's turn-end proactive suggestion (Proactive Tutor Roadmap,
     expect("nextSuggestion" in errored).toBe(false);
   });
 });
+
+describe("TutorSession.checkIn - proactive, editor-triggered feedback (Proactive Tutor Roadmap, Phase B)", () => {
+  let dir: string;
+  let store: LearningEventStore;
+
+  const objectives: CurriculumObjective[] = [
+    { id: "rust-ownership", track: "rust", unitId: "rust-ownership", bloomLevel: "understand", statement: "Explain ownership.", sourceDocIds: ["rust-book-0"], prerequisiteObjectiveIds: [] },
+    { id: "rust-structs", track: "rust", unitId: "rust-structs", bloomLevel: "apply", statement: "Define a struct.", sourceDocIds: ["rust-book-1"], prerequisiteObjectiveIds: ["rust-ownership"] },
+  ];
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "cads-session-checkin-test-"));
+    store = new LearningEventStore(path.join(dir, "events.db"));
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("grounds the check-in in exactly the objective's own sourceDocIds, not a BM25 search of the code", async () => {
+    const engine = makeEngine();
+    const complete = jest.fn<Explainer["complete"]>().mockResolvedValue("You're on the right track - this correctly takes ownership.");
+    const llm: Explainer = { complete };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const result = await session.checkIn("student-1", "rust-ownership", "fn main() { let s = String::from(\"hi\"); }");
+
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.text).toBe("You're on the right track - this correctly takes ownership.");
+      expect(result.citations[0].chunk.id).toBe("rust-book-0");
+      expect(result.mode).toBe("explain");
+      expect(result.bloomLevel).toBe("understand");
+    }
+
+    const calledPrompt = complete.mock.calls[0][0];
+    expect(calledPrompt).toContain("PROACTIVE check-in");
+    expect(calledPrompt).toContain("The student did not ask you anything");
+    expect(calledPrompt).toContain("Explain ownership.");
+    expect(calledPrompt).toContain("String::from");
+
+    const recordedMetadata = (memory.recordInteraction as jest.Mock).mock.calls[0][2];
+    expect(recordedMetadata).toMatchObject({ objectiveId: "rust-ownership", mode: "checkin" });
+  });
+
+  it("includes a nextSuggestion, exactly like ask()", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>().mockResolvedValue("Looks right so far.") };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>().mockResolvedValue(undefined) };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const result = await session.checkIn("student-1", "rust-ownership", "some code");
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.nextSuggestion?.objectiveId).toBe("rust-ownership");
+    }
+  });
+
+  it("throws if the session has no curriculum configured", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>() };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>() };
+    const session = new TutorSession(engine, llm, memory);
+
+    await expect(session.checkIn("student-1", "rust-ownership", "code")).rejects.toThrow(/requires a curriculum/);
+  });
+
+  it("throws on an unknown objectiveId rather than silently doing nothing", async () => {
+    const engine = makeEngine();
+    const llm: Explainer = { complete: jest.fn<Explainer["complete"]>() };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>() };
+    const curriculum = new CurriculumGraph(objectives);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    await expect(session.checkIn("student-1", "does-not-exist", "code")).rejects.toThrow(/unknown objectiveId/);
+  });
+
+  it("never calls the LLM when the objective's own reference chunks aren't actually indexed", async () => {
+    const engine = makeEngine(); // only indexes rust-book-0/1
+    const complete = jest.fn<Explainer["complete"]>();
+    const llm: Explainer = { complete };
+    const memory: InteractionRecorder = { recordInteraction: jest.fn<InteractionRecorder["recordInteraction"]>() };
+    const staleObjective: CurriculumObjective = {
+      id: "rust-ghost", track: "rust", unitId: "rust-ghost", bloomLevel: "understand",
+      statement: "A stale objective pointing at a chunk that no longer exists.",
+      sourceDocIds: ["rust-book-999"], prerequisiteObjectiveIds: [],
+    };
+    const curriculum = new CurriculumGraph([...objectives, staleObjective]);
+    const session = new TutorSession(engine, llm, memory, { curriculum, learningEvents: store, track: "rust" });
+
+    const result = await session.checkIn("student-1", "rust-ghost", "code");
+    expect(result.kind).toBe("refused");
+    expect(complete).not.toHaveBeenCalled();
+  });
+});

@@ -51,6 +51,8 @@ export interface Retriever {
   index(chunks: Chunk[]): void;
   /** Returns the top candidates, sorted by relevance descending. */
   search(query: string, topK: number): RetrievedChunk[];
+  /** Optional: chunks topically about the query, for questions too short to clear the threshold. */
+  searchTopic?(query: string, topK: number): RetrievedChunk[];
 }
 
 export type BloomLevel = "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";

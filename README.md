@@ -128,6 +128,12 @@ calibration per content pack, not a copy-pasted default**, and is exactly the ki
 needs verification against each pack's actual indexed content before shipping, the same way this
 project's own firmware work never trusts an untested assumption.
 
+The threshold alone also refuses short, direct questions: BM25 sums over query terms, so "What is
+ownership?" scores 3.6 while "What is the capital of France?" scores 4.5. `Bm25Retriever.searchTopic`
+therefore also accepts a chunk when every topic term occurs in it and at least one in its section
+heading (German question words included). Probed on the real packs: all 16 off-topic or uncovered
+queries stay refused, and 12 of 17 short questions that the threshold refused now ground.
+
 ## Try it yourself
 
 ```bash

@@ -26,8 +26,8 @@ const chunks: Chunk[] = [
   },
 ];
 
-function makeEngine(threshold = 0.5) {
-  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold: threshold });
+function makeEngine(threshold = 0.5, topicMatch?: boolean) {
+  const engine = new GroundingEngine(new Bm25Retriever(), { relevanceThreshold: threshold, topicMatch });
   engine.loadSources([source]);
   engine.indexChunks(chunks);
   return engine;
@@ -65,7 +65,7 @@ describe("GroundingEngine", () => {
   });
 
   it("a higher relevance threshold can turn a weak match into a refusal", () => {
-    const strictEngine = makeEngine(50); // deliberately unreachable BM25 score for this tiny corpus
+    const strictEngine = makeEngine(50, false); // deliberately unreachable BM25 score for this tiny corpus
     const answer = strictEngine.ask("What is ownership in Rust?");
     expect(answer.grounded).toBe(false);
   });

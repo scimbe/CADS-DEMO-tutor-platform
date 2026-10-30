@@ -10,6 +10,8 @@ export interface GroundingEngineOptions {
    */
   relevanceThreshold: number;
   topK?: number;
+  /** Also accept chunks the retriever finds topically about the question (default true). */
+  topicMatch?: boolean;
 }
 
 /**
@@ -47,7 +49,11 @@ export class GroundingEngine {
   ask(query: string): GroundedAnswer {
     const topK = this.options.topK ?? 5;
     const results = this.retriever.search(query, topK);
-    const supported = results.filter((r) => r.score >= this.options.relevanceThreshold);
+    let supported = results.filter((r) => r.score >= this.options.relevanceThreshold);
+    if (supported.length === 0 && this.options.topicMatch !== false) {
+      // An absolute score cannot judge short, direct questions; see Bm25Retriever.searchTopic.
+      supported = this.retriever.searchTopic?.(query, topK) ?? [];
+    }
 
     if (supported.length === 0) {
       return {
